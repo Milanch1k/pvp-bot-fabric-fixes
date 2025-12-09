@@ -1,0 +1,27 @@
+{
+  "projectPath": ":",
+  "classpaths": {
+    "test": [
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\classes\\java\\test",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\resources\\test",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\PVP_bot.test",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\test\\classes",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\test\\resources"
+    ],
+    "client": [
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\classes\\java\\client",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\resources\\client",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\PVP_bot.client",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\client\\classes",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\client\\resources"
+    ],
+    "main": [
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\classes\\java\\main",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\resources\\main",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\devlibs\\PVP_bot-1.0-dev.jar",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\PVP_bot.main",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\classes",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\resources"
+    ]
+  }
+}

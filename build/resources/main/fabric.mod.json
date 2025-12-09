@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "pvp_bot",
+  "version": "1.0",
+  "name": "PVP bot",
+  "description": "PvP bot with auto-equip",
+  "authors": ["Stepan1411"],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "org.stepan1411.pvp_bot.Pvp_bot"
+    ]
+  },
+  "mixins": [
+    "pvp_bot.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "*",
+    "fabric": "*",
+    "minecraft": "~1.21.10",
+    "carpet": "*"
+  }
+}
