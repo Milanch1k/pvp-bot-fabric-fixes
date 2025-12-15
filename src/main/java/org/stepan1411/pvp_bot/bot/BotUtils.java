@@ -22,6 +22,7 @@ public class BotUtils {
         public boolean isEating = false;
         public int eatingTicks = 0;
         public int windChargeCooldown = 0;
+        public int eatingSlot = -1; // Слот с едой которую едим
     }
     
     public static BotState getState(String botName) {
@@ -53,7 +54,8 @@ public class BotUtils {
         }
         
         // Авто-еда (приоритет над щитом)
-        if (settings.isAutoEatEnabled() && !state.isBlocking) {
+        // Всегда обрабатываем если уже едим, или если не блокируем
+        if (settings.isAutoEatEnabled() && (state.isEating || !state.isBlocking)) {
             handleAutoEat(bot, state, settings, server);
         }
         
@@ -123,52 +125,88 @@ public class BotUtils {
         if (state.isEating) {
             state.eatingTicks++;
             
-            // Держим ПКМ каждый тик чтобы не прерывалось
-            bot.setCurrentHand(Hand.MAIN_HAND);
+            // ПРИНУДИТЕЛЬНО держим слот с едой
+            if (state.eatingSlot >= 0 && state.eatingSlot < 9) {
+                bot.getInventory().setSelectedSlot(state.eatingSlot);
+            }
             
-            // Еда занимает 32 тика (1.6 сек), ждём 40 тиков (2 сек) для надёжности
-            if (state.eatingTicks >= 40) {
-                // Останавливаем еду
+            // Держим ПКМ нажатым напрямую (не через Carpet - это не сбрасывает прогресс)
+            ItemStack foodStack = bot.getMainHandStack();
+            if (foodStack.getItem().getComponents().get(DataComponentTypes.FOOD) != null) {
+                // Используем предмет напрямую каждый тик
+                bot.setCurrentHand(Hand.MAIN_HAND);
+            }
+            
+            // Еда занимает ~32 тика, но с учётом задержек ждём 80 тиков (4 сек)
+            if (state.eatingTicks >= 80) {
                 bot.stopUsingItem();
                 state.isEating = false;
                 state.eatingTicks = 0;
-                state.eatCooldown = 5;
+                state.eatingSlot = -1;
+                state.eatCooldown = 10;
                 
                 // Если всё ещё нужно есть - продолжаем сразу
                 hunger = bot.getHungerManager().getFoodLevel();
                 health = bot.getHealth();
-                if ((health <= maxHealth * 0.5f || hunger < 18) && isRetreating) {
+                if (health <= maxHealth * 0.5f || hunger < 18) {
                     state.eatCooldown = 0;
                 }
             }
             return;
         }
         
-        // Едим если: критическое HP, или отступаем, или просто голодны
-        boolean shouldEat = criticalHealth || (isRetreating && needHealth) || needFood;
+        // Золотые яблоки можно есть при любом голоде (они дают эффекты)
+        // Едим если: критическое HP, или низкое HP (< 50%), или просто голодны
+        // Не ждём isRetreating - едим сразу когда нужно лечиться
+        boolean shouldEat = criticalHealth || needHealth || needFood;
         
-        if (shouldEat && state.eatCooldown <= 0 && !state.isBlocking) {
+        // Также едим золотое яблоко если HP < 50% даже при полном голоде
+        boolean shouldEatGoldenApple = needHealth && hasGoldenApple(bot.getInventory());
+        
+        if ((shouldEat || shouldEatGoldenApple) && state.eatCooldown <= 0 && !state.isBlocking) {
             int foodSlot = findBestFood(bot.getInventory(), needHealth || criticalHealth);
             if (foodSlot >= 0) {
                 var inventory = bot.getInventory();
                 
-                // Перемещаем еду в хотбар слот 8 (последний)
-                if (foodSlot >= 9) {
-                    ItemStack food = inventory.getStack(foodSlot);
-                    ItemStack current = inventory.getStack(8);
-                    inventory.setStack(foodSlot, current);
-                    inventory.setStack(8, food);
-                    foodSlot = 8;
+                // Проверяем что это действительно еда
+                ItemStack foodStack = inventory.getStack(foodSlot);
+                if (!foodStack.isEmpty() && foodStack.getItem().getComponents().get(DataComponentTypes.FOOD) != null) {
+                    // Перемещаем еду в хотбар слот 8 (последний)
+                    if (foodSlot >= 9) {
+                        ItemStack food = inventory.getStack(foodSlot);
+                        ItemStack current = inventory.getStack(8);
+                        inventory.setStack(foodSlot, current);
+                        inventory.setStack(8, food);
+                        foodSlot = 8;
+                    }
+                    
+                    state.eatingSlot = foodSlot;
+                    
+                    // Переключаем слот напрямую
+                    inventory.setSelectedSlot(foodSlot);
+                    
+                    // Начинаем есть напрямую
+                    bot.setCurrentHand(Hand.MAIN_HAND);
+                    state.isEating = true;
+                    state.eatingTicks = 0;
+                    
+                    System.out.println("[PVP_BOT] " + bot.getName().getString() + " starting to eat from slot " + foodSlot + ", item: " + foodStack.getItem().getName().getString());
                 }
-                
-                inventory.setSelectedSlot(foodSlot);
-                
-                // Начинаем есть напрямую
-                bot.setCurrentHand(Hand.MAIN_HAND);
-                state.isEating = true;
-                state.eatingTicks = 0;
             }
         }
+    }
+    
+    /**
+     * Проверяет есть ли золотое яблоко в инвентаре
+     */
+    private static boolean hasGoldenApple(net.minecraft.entity.player.PlayerInventory inventory) {
+        for (int i = 0; i < 36; i++) {
+            Item item = inventory.getStack(i).getItem();
+            if (item == Items.GOLDEN_APPLE || item == Items.ENCHANTED_GOLDEN_APPLE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     
@@ -303,6 +341,7 @@ public class BotUtils {
     public static void useWindCharge(ServerPlayerEntity bot, MinecraftServer server) {
         BotState state = getState(bot.getName().getString());
         if (state.windChargeCooldown > 0) return;
+        if (state.isEating) return; // Не прерываем еду
         
         var inventory = bot.getInventory();
         int slot = findWindCharge(inventory);
@@ -339,6 +378,10 @@ public class BotUtils {
      * Сбить щит топором
      */
     public static boolean tryDisableShield(ServerPlayerEntity bot, Entity target) {
+        // Не прерываем еду
+        BotState state = getState(bot.getName().getString());
+        if (state.isEating) return false;
+        
         if (!(target instanceof PlayerEntity player)) return false;
         if (!player.isBlocking()) return false;
         

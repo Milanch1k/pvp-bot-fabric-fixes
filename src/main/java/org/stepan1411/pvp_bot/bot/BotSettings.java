@@ -62,6 +62,13 @@ public class BotSettings {
     private boolean shieldBreakEnabled = true;    // Сбивать щит топором
     private int minHungerToEat = 14;              // Минимальный голод для еды
     
+    // ============ Навигация и движение ============
+    private boolean bhopEnabled = true;           // Bunny hop (прыжки при беге)
+    private int bhopCooldown = 12;                // Кулдаун между прыжками (тики)
+    private double jumpBoost = 0.0;               // Дополнительная высота прыжка (0.0 - 0.5)
+    private boolean idleWanderEnabled = true;     // Бродить когда нет цели
+    private double idleWanderRadius = 10.0;       // Радиус блуждания
+    
     // ============ Фракции и ошибки ============
     private boolean factionsEnabled = true;       // Использовать систему фракций
     private int missChance = 10;                  // Шанс промаха (0-100%)
@@ -141,6 +148,13 @@ public class BotSettings {
     public boolean isAutoShieldEnabled() { return autoShieldEnabled; }
     public boolean isShieldBreakEnabled() { return shieldBreakEnabled; }
     public int getMinHungerToEat() { return minHungerToEat; }
+    
+    // Getters - Navigation
+    public boolean isBhopEnabled() { return bhopEnabled; }
+    public int getBhopCooldown() { return bhopCooldown; }
+    public double getJumpBoost() { return jumpBoost; }
+    public boolean isIdleWanderEnabled() { return idleWanderEnabled; }
+    public double getIdleWanderRadius() { return idleWanderRadius; }
     
     // Getters - Factions & Mistakes
     public boolean isFactionsEnabled() { return factionsEnabled; }
@@ -233,6 +247,22 @@ public class BotSettings {
     public void setShieldBreakEnabled(boolean value) { this.shieldBreakEnabled = value; save(); }
     public void setMinHungerToEat(int value) { 
         this.minHungerToEat = Math.max(1, Math.min(20, value)); 
+        save(); 
+    }
+    
+    // Setters - Navigation
+    public void setBhopEnabled(boolean value) { this.bhopEnabled = value; save(); }
+    public void setBhopCooldown(int value) { 
+        this.bhopCooldown = Math.max(5, Math.min(30, value)); 
+        save(); 
+    }
+    public void setJumpBoost(double value) { 
+        this.jumpBoost = Math.max(0.0, Math.min(0.5, value)); 
+        save(); 
+    }
+    public void setIdleWanderEnabled(boolean value) { this.idleWanderEnabled = value; save(); }
+    public void setIdleWanderRadius(double value) { 
+        this.idleWanderRadius = Math.max(3.0, Math.min(50.0, value)); 
         save(); 
     }
     

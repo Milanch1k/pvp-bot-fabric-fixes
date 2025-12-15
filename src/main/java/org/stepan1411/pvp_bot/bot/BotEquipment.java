@@ -11,6 +11,12 @@ import java.util.List;
 public class BotEquipment {
 
     public static void autoEquip(ServerPlayerEntity bot) {
+        // НЕ экипируем оружие если бот ест!
+        var utilsState = BotUtils.getState(bot.getName().getString());
+        if (utilsState.isEating) {
+            return;
+        }
+        
         BotSettings settings = BotSettings.get();
         
         if (settings.isAutoEquipArmor()) {

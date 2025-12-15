@@ -83,8 +83,13 @@ public class BotCombat {
             if (state.isDrawingBow) {
                 stopUsingBow(bot, state);
             }
+            // Idle блуждание когда нет цели
+            BotNavigation.idleWander(bot);
             return;
         }
+        
+        // Есть цель - сбрасываем idle
+        BotNavigation.resetIdle(bot.getName().getString());
         
         // Определяем дистанцию до цели
         double distance = bot.distanceTo(target);
@@ -94,23 +99,32 @@ public class BotCombat {
         float maxHealth = bot.getMaxHealth();
         boolean lowHealth = health <= maxHealth * 0.3f; // Меньше 30% HP
         
-        // Проверяем ест ли бот
+        // Проверяем ест ли бот - НИКОГДА не переключаем слоты пока едим!
         var utilsState = BotUtils.getState(bot.getName().getString());
         boolean isEating = utilsState.isEating;
         
-        // Отступаем если: низкое HP, или едим (не прерываем еду!)
-        if ((lowHealth && distance < 15.0) || isEating) {
-            // Отступаем и лечимся - разворачиваемся СПИНОЙ к врагу и убегаем
+        if (isEating) {
+            // Бот ест - не переключаем слоты, но двигаемся от врага с обходом препятствий
             state.isRetreating = true;
-            
-            // Если не едим - смотрим от врага
-            if (!isEating) {
-                lookAwayFromTarget(bot, target);
+            if (state.isDrawingBow) {
+                stopUsingBow(bot, state);
             }
-            // Убегаем даже когда едим
-            moveAway(bot, target, 1.5);
-            bot.setSprinting(true);
-            return; // Не атакуем пока лечимся/едим
+            // Убегаем от врага с навигацией (скорость 1.2 = бхоп включён)
+            BotNavigation.lookAway(bot, target);
+            BotNavigation.moveAway(bot, target, 1.2);
+            return;
+        }
+        
+        // Отступаем если низкое HP - убегаем пока HP не восстановится или враг не отстанет
+        if (lowHealth) {
+            state.isRetreating = true;
+            // Убегаем пока враг ближе 25 блоков (скорость 1.5 = максимальный бхоп)
+            if (distance < 25.0) {
+                BotNavigation.lookAway(bot, target);
+                BotNavigation.moveAway(bot, target, 1.5);
+            }
+            // Не атакуем пока HP низкое
+            return;
         }
         state.isRetreating = false;
         
@@ -118,7 +132,20 @@ public class BotCombat {
         selectWeaponMode(bot, state, distance, settings);
         
         // Поворачиваемся к цели
-        lookAtTarget(bot, target);
+        BotNavigation.lookAt(bot, target);
+        
+        // Если враг слишком далеко для текущего режима - идём к нему
+        double maxRange = switch (state.currentMode) {
+            case MELEE -> settings.getMeleeRange() * 2;
+            case RANGED -> settings.getRangedOptimalRange() + 15;
+            case MACE -> settings.getMaceRange() * 2;
+        };
+        
+        if (distance > maxRange) {
+            // Враг далеко - идём к нему
+            BotNavigation.moveToward(bot, target, settings.getMoveSpeed());
+            return;
+        }
         
         // Выполняем действие в зависимости от режима
         switch (state.currentMode) {
@@ -362,12 +389,12 @@ public class BotCombat {
         
         double meleeRange = settings.getMeleeRange();
         
-        // Движение к цели
+        // Движение к цели с навигацией
         if (distance > meleeRange) {
-            moveToward(bot, target, settings.getMoveSpeed());
+            BotNavigation.moveToward(bot, target, settings.getMoveSpeed());
         } else if (distance < 1.5) {
             // Слишком близко - отходим немного
-            moveAway(bot, target, 0.3);
+            BotNavigation.moveAway(bot, target, 0.3);
         }
         
         // Атака
@@ -417,12 +444,12 @@ public class BotCombat {
             handleBowCombat(bot, target, state, distance, settings);
         }
         
-        // Держим дистанцию
+        // Держим дистанцию с навигацией
         double optimalRange = settings.getRangedOptimalRange();
         if (distance < optimalRange - 5) {
-            moveAway(bot, target, settings.getMoveSpeed());
+            BotNavigation.moveAway(bot, target, settings.getMoveSpeed());
         } else if (distance > optimalRange + 10) {
-            moveToward(bot, target, settings.getMoveSpeed());
+            BotNavigation.moveToward(bot, target, settings.getMoveSpeed());
         }
     }
     
@@ -544,9 +571,9 @@ public class BotCombat {
             state.attackCooldown = settings.getAttackCooldown();
         }
         
-        // Движение к цели
+        // Движение к цели с навигацией
         if (distance > settings.getMaceRange()) {
-            moveToward(bot, target, settings.getMoveSpeed());
+            BotNavigation.moveToward(bot, target, settings.getMoveSpeed());
         }
     }
 

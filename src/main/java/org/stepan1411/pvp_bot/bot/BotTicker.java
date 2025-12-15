@@ -31,9 +31,12 @@ public class BotTicker {
                 // Боевая система - каждый тик
                 BotCombat.update(bot, server);
                 
-                // Экипировка - по интервалу
+                // Экипировка - по интервалу (не во время еды!)
                 if (tickCounter >= interval) {
-                    BotEquipment.autoEquip(bot);
+                    var utilsState = BotUtils.getState(botName);
+                    if (!utilsState.isEating) {
+                        BotEquipment.autoEquip(bot);
+                    }
                 }
             }
         }

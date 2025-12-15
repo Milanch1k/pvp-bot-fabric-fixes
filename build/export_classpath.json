@@ -2,26 +2,26 @@
   "projectPath": ":",
   "classpaths": {
     "test": [
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\classes\\java\\test",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\resources\\test",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\PVP_bot.test",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\test\\classes",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\test\\resources"
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\classes\\java\\test",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\resources\\test",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\production\\pvp-bot-fabric.test",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\test\\classes",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\test\\resources"
     ],
     "client": [
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\classes\\java\\client",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\resources\\client",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\PVP_bot.client",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\client\\classes",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\client\\resources"
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\classes\\java\\client",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\resources\\client",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\production\\pvp-bot-fabric.client",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\client\\classes",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\client\\resources"
     ],
     "main": [
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\classes\\java\\main",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\resources\\main",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\build\\devlibs\\PVP_bot-1.0-dev.jar",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\PVP_bot.main",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\classes",
-      "C:\\Users\\Stepan1411\\IdeaProjects\\PVP bot\\out\\production\\resources"
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\classes\\java\\main",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\resources\\main",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\build\\devlibs\\PVP_bot-0.0.4-dev.jar",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\production\\pvp-bot-fabric.main",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\production\\classes",
+      "C:\\Users\\Stepan1411\\IdeaProjects\\pvp-bot-fabric\\out\\production\\resources"
     ]
   }
 }

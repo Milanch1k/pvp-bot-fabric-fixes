@@ -13,6 +13,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import org.stepan1411.pvp_bot.bot.BotCombat;
 import org.stepan1411.pvp_bot.bot.BotFaction;
+import org.stepan1411.pvp_bot.bot.BotKits;
 import org.stepan1411.pvp_bot.bot.BotManager;
 import org.stepan1411.pvp_bot.bot.BotSettings;
 
@@ -35,6 +36,10 @@ public class BotCommand {
     // Подсказки для фракций
     private static final SuggestionProvider<ServerCommandSource> FACTION_SUGGESTIONS = (ctx, builder) -> 
         CommandSource.suggestMatching(BotFaction.getAllFactions(), builder);
+    
+    // Подсказки для китов
+    private static final SuggestionProvider<ServerCommandSource> KIT_SUGGESTIONS = (ctx, builder) -> 
+        CommandSource.suggestMatching(BotKits.getKitNames(), builder);
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(
@@ -275,6 +280,90 @@ public class BotCommand {
                             })
                         )
                     )
+                    
+                    // === Navigation Settings ===
+                    .then(CommandManager.literal("bhop")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("bhop: " + BotSettings.get().isBhopEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setBhopEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Bhop enabled: " + BotSettings.get().isBhopEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("bhopcooldown")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("bhopcooldown: " + BotSettings.get().getBhopCooldown() + " ticks"), false); return 1; })
+                        .then(CommandManager.argument("ticks", IntegerArgumentType.integer(5, 30))
+                            .executes(ctx -> {
+                                BotSettings.get().setBhopCooldown(IntegerArgumentType.getInteger(ctx, "ticks"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Bhop cooldown: " + BotSettings.get().getBhopCooldown() + " ticks"), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("jumpboost")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("jumpboost: " + BotSettings.get().getJumpBoost()), false); return 1; })
+                        .then(CommandManager.argument("boost", DoubleArgumentType.doubleArg(0.0, 0.5))
+                            .executes(ctx -> {
+                                BotSettings.get().setJumpBoost(DoubleArgumentType.getDouble(ctx, "boost"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Jump boost: " + BotSettings.get().getJumpBoost()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("idle")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("idle: " + BotSettings.get().isIdleWanderEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setIdleWanderEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Idle wander: " + BotSettings.get().isIdleWanderEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("idleradius")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("idleradius: " + BotSettings.get().getIdleWanderRadius()), false); return 1; })
+                        .then(CommandManager.argument("radius", DoubleArgumentType.doubleArg(3.0, 50.0))
+                            .executes(ctx -> {
+                                BotSettings.get().setIdleWanderRadius(DoubleArgumentType.getDouble(ctx, "radius"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Idle wander radius: " + BotSettings.get().getIdleWanderRadius()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    
+                    // === Realism Settings ===
+                    .then(CommandManager.literal("misschance")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("misschance: " + BotSettings.get().getMissChance() + "%"), false); return 1; })
+                        .then(CommandManager.argument("percent", IntegerArgumentType.integer(0, 100))
+                            .executes(ctx -> {
+                                BotSettings.get().setMissChance(IntegerArgumentType.getInteger(ctx, "percent"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Miss chance: " + BotSettings.get().getMissChance() + "%"), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("mistakechance")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("mistakechance: " + BotSettings.get().getMistakeChance() + "%"), false); return 1; })
+                        .then(CommandManager.argument("percent", IntegerArgumentType.integer(0, 100))
+                            .executes(ctx -> {
+                                BotSettings.get().setMistakeChance(IntegerArgumentType.getInteger(ctx, "percent"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Mistake chance: " + BotSettings.get().getMistakeChance() + "%"), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("reactiondelay")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("reactiondelay: " + BotSettings.get().getReactionDelay() + " ticks"), false); return 1; })
+                        .then(CommandManager.argument("ticks", IntegerArgumentType.integer(0, 20))
+                            .executes(ctx -> {
+                                BotSettings.get().setReactionDelay(IntegerArgumentType.getInteger(ctx, "ticks"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Reaction delay: " + BotSettings.get().getReactionDelay() + " ticks"), true);
+                                return 1;
+                            })
+                        )
+                    )
                 )
                 
                 // /pvpbot attack <botname> <target> - с подсказками
@@ -422,6 +511,55 @@ public class BotCommand {
                         )
                     )
                 )
+                
+                // ============ Команды китов ============
+                // /pvpbot createkit <name> - создать кит из инвентаря игрока
+                .then(CommandManager.literal("createkit")
+                    .then(CommandManager.argument("name", StringArgumentType.word())
+                        .executes(ctx -> createKit(ctx.getSource(), StringArgumentType.getString(ctx, "name")))
+                    )
+                )
+                
+                // /pvpbot deletekit <name> - удалить кит
+                .then(CommandManager.literal("deletekit")
+                    .then(CommandManager.argument("name", StringArgumentType.word())
+                        .suggests(KIT_SUGGESTIONS)
+                        .executes(ctx -> deleteKit(ctx.getSource(), StringArgumentType.getString(ctx, "name")))
+                    )
+                )
+                
+                // /pvpbot kits - список китов
+                .then(CommandManager.literal("kits")
+                    .executes(ctx -> listKits(ctx.getSource()))
+                )
+                
+                // /pvpbot givekit <botname> <kitname> - выдать кит боту
+                .then(CommandManager.literal("givekit")
+                    .then(CommandManager.argument("botname", StringArgumentType.word())
+                        .suggests(BOT_SUGGESTIONS)
+                        .then(CommandManager.argument("kitname", StringArgumentType.word())
+                            .suggests(KIT_SUGGESTIONS)
+                            .executes(ctx -> giveKitToBot(ctx.getSource(), 
+                                StringArgumentType.getString(ctx, "botname"),
+                                StringArgumentType.getString(ctx, "kitname")))
+                        )
+                    )
+                )
+                
+                // /pvpbot faction givekit <faction> <kitname> - выдать кит всей фракции
+                .then(CommandManager.literal("faction")
+                    .then(CommandManager.literal("givekit")
+                        .then(CommandManager.argument("faction", StringArgumentType.word())
+                            .suggests(FACTION_SUGGESTIONS)
+                            .then(CommandManager.argument("kitname", StringArgumentType.word())
+                                .suggests(KIT_SUGGESTIONS)
+                                .executes(ctx -> giveKitToFaction(ctx.getSource(), 
+                                    StringArgumentType.getString(ctx, "faction"),
+                                    StringArgumentType.getString(ctx, "kitname")))
+                            )
+                        )
+                    )
+                )
         );
     }
     
@@ -528,10 +666,17 @@ public class BotCommand {
         source.sendFeedback(() -> Text.literal("attackcooldown: " + s.getAttackCooldown() + " ticks"), false);
         source.sendFeedback(() -> Text.literal("meleerange: " + s.getMeleeRange()), false);
         source.sendFeedback(() -> Text.literal("movespeed: " + s.getMoveSpeed()), false);
+        source.sendFeedback(() -> Text.literal("=== Navigation Settings ==="), false);
+        source.sendFeedback(() -> Text.literal("bhop: " + s.isBhopEnabled()), false);
+        source.sendFeedback(() -> Text.literal("bhopcooldown: " + s.getBhopCooldown() + " ticks"), false);
+        source.sendFeedback(() -> Text.literal("jumpboost: " + s.getJumpBoost()), false);
+        source.sendFeedback(() -> Text.literal("idle: " + s.isIdleWanderEnabled()), false);
+        source.sendFeedback(() -> Text.literal("idleradius: " + s.getIdleWanderRadius()), false);
         source.sendFeedback(() -> Text.literal("=== Factions & Mistakes ==="), false);
         source.sendFeedback(() -> Text.literal("factions: " + s.isFactionsEnabled()), false);
         source.sendFeedback(() -> Text.literal("misschance: " + s.getMissChance() + "%"), false);
         source.sendFeedback(() -> Text.literal("mistakechance: " + s.getMistakeChance() + "%"), false);
+        source.sendFeedback(() -> Text.literal("reactiondelay: " + s.getReactionDelay() + " ticks"), false);
         return 1;
     }
     
@@ -719,6 +864,108 @@ public class BotCommand {
         
         final int given = count;
         source.sendFeedback(() -> Text.literal("Gave items to " + given + " members of faction '" + faction + "'"), true);
+        return count;
+    }
+    
+    // ============ Команды китов ============
+    
+    private static int createKit(ServerCommandSource source, String kitName) {
+        var player = source.getPlayer();
+        if (player == null) {
+            source.sendError(Text.literal("This command must be run by a player!"));
+            return 0;
+        }
+        
+        if (BotKits.kitExists(kitName)) {
+            source.sendError(Text.literal("Kit '" + kitName + "' already exists!"));
+            return 0;
+        }
+        
+        if (BotKits.createKit(kitName, player)) {
+            source.sendFeedback(() -> Text.literal("Kit '" + kitName + "' created from your inventory!"), true);
+            return 1;
+        } else {
+            source.sendError(Text.literal("Failed to create kit (empty inventory?)"));
+            return 0;
+        }
+    }
+    
+    private static int deleteKit(ServerCommandSource source, String kitName) {
+        if (BotKits.deleteKit(kitName)) {
+            source.sendFeedback(() -> Text.literal("Kit '" + kitName + "' deleted!"), true);
+            return 1;
+        } else {
+            source.sendError(Text.literal("Kit '" + kitName + "' not found!"));
+            return 0;
+        }
+    }
+    
+    private static int listKits(ServerCommandSource source) {
+        var kits = BotKits.getKitNames();
+        if (kits.isEmpty()) {
+            source.sendFeedback(() -> Text.literal("No kits created. Use /pvpbot createkit <name> to create one."), false);
+        } else {
+            source.sendFeedback(() -> Text.literal("Kits (" + kits.size() + "): " + String.join(", ", kits)), false);
+        }
+        return 1;
+    }
+    
+    private static int giveKitToBot(ServerCommandSource source, String botName, String kitName) {
+        if (!BotManager.getAllBots().contains(botName)) {
+            source.sendError(Text.literal("Bot '" + botName + "' not found!"));
+            return 0;
+        }
+        
+        if (!BotKits.kitExists(kitName)) {
+            source.sendError(Text.literal("Kit '" + kitName + "' not found!"));
+            return 0;
+        }
+        
+        var bot = BotManager.getBot(source.getServer(), botName);
+        if (bot == null) {
+            source.sendError(Text.literal("Bot '" + botName + "' is offline!"));
+            return 0;
+        }
+        
+        if (BotKits.giveKit(kitName, bot)) {
+            source.sendFeedback(() -> Text.literal("Gave kit '" + kitName + "' to bot '" + botName + "'"), true);
+            return 1;
+        } else {
+            source.sendError(Text.literal("Failed to give kit!"));
+            return 0;
+        }
+    }
+    
+    private static int giveKitToFaction(ServerCommandSource source, String factionName, String kitName) {
+        if (!BotFaction.getAllFactions().contains(factionName)) {
+            source.sendError(Text.literal("Faction '" + factionName + "' not found!"));
+            return 0;
+        }
+        
+        if (!BotKits.kitExists(kitName)) {
+            source.sendError(Text.literal("Kit '" + kitName + "' not found!"));
+            return 0;
+        }
+        
+        var members = BotFaction.getMembers(factionName);
+        if (members == null || members.isEmpty()) {
+            source.sendError(Text.literal("Faction '" + factionName + "' has no members!"));
+            return 0;
+        }
+        
+        int count = 0;
+        for (String memberName : members) {
+            // Проверяем что это бот
+            if (BotManager.getAllBots().contains(memberName)) {
+                var bot = BotManager.getBot(source.getServer(), memberName);
+                if (bot != null && BotKits.giveKit(kitName, bot)) {
+                    count++;
+                }
+            }
+        }
+        
+        final int given = count;
+        source.sendFeedback(() -> Text.literal("Gave kit '" + kitName + "' to " + given + " bots in faction '" + factionName + "'"), true);
         return count;
     }
 }
