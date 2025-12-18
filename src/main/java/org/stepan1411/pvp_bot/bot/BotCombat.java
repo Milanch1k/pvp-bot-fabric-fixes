@@ -176,17 +176,27 @@ public class BotCombat {
         if (settings.isRevengeEnabled() && state.lastAttacker != null) {
             // Проверяем что атакующий ещё существует и жив
             if (!state.lastAttacker.isRemoved() && state.lastAttacker.isAlive()) {
-                double dist = bot.distanceTo(state.lastAttacker);
-                if (dist <= settings.getMaxTargetDistance()) {
-                    // Обновляем время если враг близко (не сбрасываем пока враг рядом)
-                    if (dist <= 10.0) {
-                        state.lastAttackTime = System.currentTimeMillis();
+                // Проверяем friendlyfire - не атакуем союзников даже в реванже
+                if (!settings.isFriendlyFireEnabled() && state.lastAttacker instanceof PlayerEntity) {
+                    String attackerName = state.lastAttacker.getName().getString();
+                    if (BotFaction.areAllies(bot.getName().getString(), attackerName)) {
+                        state.lastAttacker = null; // Сбрасываем - это союзник
                     }
-                    return state.lastAttacker;
+                }
+                
+                if (state.lastAttacker != null) {
+                    double dist = bot.distanceTo(state.lastAttacker);
+                    if (dist <= settings.getMaxTargetDistance()) {
+                        // Обновляем время если враг близко (не сбрасываем пока враг рядом)
+                        if (dist <= 10.0) {
+                            state.lastAttackTime = System.currentTimeMillis();
+                        }
+                        return state.lastAttacker;
+                    }
                 }
             }
             // Сбрасываем только если цель мертва или далеко больше 30 секунд
-            if (state.lastAttacker.isRemoved() || !state.lastAttacker.isAlive() || 
+            if (state.lastAttacker == null || state.lastAttacker.isRemoved() || !state.lastAttacker.isAlive() || 
                 System.currentTimeMillis() - state.lastAttackTime >= 30000) {
                 state.lastAttacker = null;
             }
@@ -304,8 +314,8 @@ public class BotCombat {
             
             // Проверяем фракции
             if (settings.isFactionsEnabled()) {
-                // Союзники - не атакуем
-                if (BotFaction.areAllies(botName, targetName)) {
+                // Союзники - не атакуем (если friendlyfire выключен)
+                if (!settings.isFriendlyFireEnabled() && BotFaction.areAllies(botName, targetName)) {
                     return false;
                 }
                 // Враги по фракции - атакуем
@@ -411,7 +421,7 @@ public class BotCombat {
             }
             
             // Атакуем через Carpet для надёжности
-            attackWithCarpet(bot, server);
+            attackWithCarpet(bot, target, server);
             state.attackCooldown = settings.getAttackCooldown();
         }
     }
@@ -600,8 +610,19 @@ public class BotCombat {
     /**
      * Атака через команду Carpet (более надёжно)
      */
-    private static void attackWithCarpet(ServerPlayerEntity bot, net.minecraft.server.MinecraftServer server) {
+    private static void attackWithCarpet(ServerPlayerEntity bot, Entity target, net.minecraft.server.MinecraftServer server) {
         BotSettings settings = BotSettings.get();
+        
+        // Проверка friendlyfire - не атакуем союзников
+        if (!settings.isFriendlyFireEnabled() && target instanceof PlayerEntity) {
+            String botName = bot.getName().getString();
+            String targetName = target.getName().getString();
+            if (BotFaction.areAllies(botName, targetName)) {
+                // Союзник - не атакуем, просто машем рукой
+                bot.swingHand(Hand.MAIN_HAND);
+                return;
+            }
+        }
         
         // Шанс промаха
         if (random.nextInt(100) < settings.getMissChance()) {

@@ -71,6 +71,7 @@ public class BotSettings {
     
     // ============ Фракции и ошибки ============
     private boolean factionsEnabled = true;       // Использовать систему фракций
+    private boolean friendlyFireEnabled = false;  // Урон по союзникам (false = нельзя бить союзников)
     private int missChance = 10;                  // Шанс промаха (0-100%)
     private int mistakeChance = 5;                // Шанс ошибки (0-100%)
     private int reactionDelay = 0;                // Задержка реакции в тиках (0-20)
@@ -158,6 +159,7 @@ public class BotSettings {
     
     // Getters - Factions & Mistakes
     public boolean isFactionsEnabled() { return factionsEnabled; }
+    public boolean isFriendlyFireEnabled() { return friendlyFireEnabled; }
     public int getMissChance() { return missChance; }
     public int getMistakeChance() { return mistakeChance; }
     public int getReactionDelay() { return reactionDelay; }
@@ -268,6 +270,7 @@ public class BotSettings {
     
     // Setters - Factions & Mistakes
     public void setFactionsEnabled(boolean value) { this.factionsEnabled = value; save(); }
+    public void setFriendlyFireEnabled(boolean value) { this.friendlyFireEnabled = value; save(); }
     public void setMissChance(int value) { 
         this.missChance = Math.max(0, Math.min(100, value)); 
         save(); 

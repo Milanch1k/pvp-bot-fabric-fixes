@@ -333,6 +333,16 @@ public class BotCommand {
                     )
                     
                     // === Realism Settings ===
+                    .then(CommandManager.literal("friendlyfire")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("friendlyfire: " + BotSettings.get().isFriendlyFireEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setFriendlyFireEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Friendly fire: " + BotSettings.get().isFriendlyFireEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
                     .then(CommandManager.literal("misschance")
                         .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("misschance: " + BotSettings.get().getMissChance() + "%"), false); return 1; })
                         .then(CommandManager.argument("percent", IntegerArgumentType.integer(0, 100))
@@ -673,6 +683,7 @@ public class BotCommand {
         source.sendFeedback(() -> Text.literal("idleradius: " + s.getIdleWanderRadius()), false);
         source.sendFeedback(() -> Text.literal("=== Factions & Mistakes ==="), false);
         source.sendFeedback(() -> Text.literal("factions: " + s.isFactionsEnabled()), false);
+        source.sendFeedback(() -> Text.literal("friendlyfire: " + s.isFriendlyFireEnabled()), false);
         source.sendFeedback(() -> Text.literal("misschance: " + s.getMissChance() + "%"), false);
         source.sendFeedback(() -> Text.literal("mistakechance: " + s.getMistakeChance() + "%"), false);
         source.sendFeedback(() -> Text.literal("reactiondelay: " + s.getReactionDelay() + " ticks"), false);
