@@ -2,11 +2,16 @@
   "schemaVersion": 1,
   "id": "pvp_bot",
   "version": "${version}",
-  "name": "PVP bot",
-  "description": "PvP bot with auto-equip",
+  "name": "PVP Bot",
+  "description": "Advanced PvP bot with combat AI, factions, auto-equip, navigation and more!",
   "authors": ["Stepan1411"],
-  "contact": {},
+  "contact": {
+    "modrinth": "https://modrinth.com/mod/pvp-bot-fabric",
+    "sources": "https://github.com/Stepan1411/pvp-bot-fabric",
+    "issues": "https://github.com/Stepan1411/pvp-bot-fabric/issues"
+  },
   "license": "All-Rights-Reserved",
+  "icon": "assets/pvp_bot/icon.png",
   "environment": "server",
   "entrypoints": {
     "main": [
@@ -19,7 +24,18 @@
   "depends": {
     "fabricloader": "*",
     "fabric": "*",
-    "minecraft": ">=1.21.1",
+    "minecraft": ">=1.21.10",
     "carpet": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.wiki": "https://github.com/Stepan1411/pvp-bot-fabric/wiki"
+      },
+      "badges": ["library"]
+    }
   }
 }

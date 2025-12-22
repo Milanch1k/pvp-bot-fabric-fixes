@@ -537,7 +537,7 @@ public class BotCombat {
             double verticalSpeed = bot.getVelocity().y;
             if (verticalSpeed < 0 && distance <= 5.0 && state.attackCooldown <= 0) {
                 // Атакуем сразу как начинаем падать
-                attackWithCarpet(bot, server);
+                attackWithCarpet(bot, target, server);
                 state.attackCooldown = 5; // Короткий кулдаун для повторной атаки
             }
             return;
@@ -577,7 +577,7 @@ public class BotCombat {
             if (maceSlot >= 0 && maceSlot < 9) {
                 ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(maceSlot);
             }
-            attackWithCarpet(bot, server);
+            attackWithCarpet(bot, target, server);
             state.attackCooldown = settings.getAttackCooldown();
         }
         
