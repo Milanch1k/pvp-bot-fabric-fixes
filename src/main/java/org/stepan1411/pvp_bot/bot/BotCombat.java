@@ -605,7 +605,7 @@ public class BotCombat {
     /**
      * Бой копьём (Spear) - 1.21.11
      * Два режима атаки:
-     * - Charging: зажать ПКМ, отпустить для мощной атаки (урон зависит от скорости)
+     * - Charging: зажать ПКМ за 3-4 блока до цели, отпустить для мощной атаки
      * - Jabbing: быстрый удар (обычная атака)
      */
     private static void handleSpearCombat(ServerPlayerEntity bot, Entity target, CombatState state, double distance, BotSettings settings, net.minecraft.server.MinecraftServer server) {
@@ -623,77 +623,53 @@ public class BotCombat {
         }
         
         double spearRange = settings.getSpearRange();
-        double chargeRange = settings.getSpearChargeRange();
+        double chargeStartDistance = 4.0; // Начинаем заряжать за 3-4 блока
         
         // Логика боя копьём:
-        // - Если далеко (> spearRange) - бежим к врагу и заряжаем charge атаку
-        // - Если близко (<= spearRange) - используем jab атаку
-        // - Charge атака наносит больше урона при высокой скорости
+        // - Далеко (> 4 блоков) - просто бежим к врагу БЕЗ заряда
+        // - За 3-4 блока - начинаем заряжать charge атаку
+        // - Близко (<= spearRange) - jab атака или отпускаем charge
         
-        if (distance > spearRange && distance <= chargeRange) {
-            // Средняя дистанция - используем charge атаку
-            if (!state.isChargingSpear) {
-                // Начинаем заряжать копьё
-                bot.setCurrentHand(Hand.MAIN_HAND);
-                state.isChargingSpear = true;
-                state.spearChargeTicks = 0;
-            } else {
-                state.spearChargeTicks++;
-                
-                // Бежим к врагу пока заряжаем
-                BotNavigation.moveToward(bot, target, settings.getMoveSpeed() * 1.2);
-                
-                // Копьё полностью заряжено после ~15 тиков
-                // Если враг близко или заряд слишком долгий - отпускаем
-                int minChargeTime = settings.getSpearMinChargeTime();
-                int maxChargeTime = settings.getSpearMaxChargeTime();
-                
-                if (state.spearChargeTicks >= minChargeTime && distance <= spearRange + 2) {
-                    // Отпускаем charge атаку когда близко к врагу
-                    bot.stopUsingItem();
-                    state.isChargingSpear = false;
-                    state.spearChargeTicks = 0;
-                    state.attackCooldown = settings.getAttackCooldown();
-                } else if (state.spearChargeTicks >= maxChargeTime) {
-                    // Слишком долго держим - копьё начинает трястись, отпускаем
-                    bot.stopUsingItem();
-                    state.isChargingSpear = false;
-                    state.spearChargeTicks = 0;
-                    state.attackCooldown = 5;
-                }
-            }
-        } else if (distance <= spearRange) {
-            // Близко - используем jab атаку (быстрый удар)
-            if (state.isChargingSpear) {
-                // Отпускаем charge если заряжали
-                bot.stopUsingItem();
-                state.isChargingSpear = false;
-                state.spearChargeTicks = 0;
-            }
-            
-            // Jab атака
-            if (state.attackCooldown <= 0) {
-                // Критический удар - прыжок перед ударом
-                if (settings.isCriticalsEnabled() && bot.isOnGround()) {
-                    bot.jump();
-                }
-                
-                attackWithCarpet(bot, target, server);
-                state.attackCooldown = settings.getAttackCooldown();
-            }
-            
-            // Держим дистанцию - копьё эффективнее на средней дистанции
-            if (distance < 2.0) {
-                BotNavigation.moveAway(bot, target, 0.3);
-            }
-        } else {
-            // Слишком далеко - идём к врагу
+        if (distance > chargeStartDistance) {
+            // Далеко - просто бежим к врагу, НЕ заряжаем копьё
             if (state.isChargingSpear) {
                 bot.stopUsingItem();
                 state.isChargingSpear = false;
                 state.spearChargeTicks = 0;
             }
             BotNavigation.moveToward(bot, target, settings.getMoveSpeed());
+        } else if (distance > spearRange && distance <= chargeStartDistance) {
+            // За 3-4 блока - начинаем charge атаку
+            if (!state.isChargingSpear) {
+                bot.setCurrentHand(Hand.MAIN_HAND);
+                state.isChargingSpear = true;
+                state.spearChargeTicks = 0;
+            } else {
+                state.spearChargeTicks++;
+                // Продолжаем бежать к врагу
+                BotNavigation.moveToward(bot, target, settings.getMoveSpeed() * 1.2);
+            }
+        } else if (distance <= spearRange) {
+            // Близко к врагу
+            if (state.isChargingSpear) {
+                // Отпускаем charge атаку
+                bot.stopUsingItem();
+                state.isChargingSpear = false;
+                state.spearChargeTicks = 0;
+                state.attackCooldown = 5; // Короткий кулдаун после charge
+            } else if (state.attackCooldown <= 0) {
+                // Jab атака (быстрый удар)
+                if (settings.isCriticalsEnabled() && bot.isOnGround()) {
+                    bot.jump();
+                }
+                attackWithCarpet(bot, target, server);
+                state.attackCooldown = 5; // Короткий кулдаун для jab
+            }
+            
+            // Держим дистанцию
+            if (distance < 2.0) {
+                BotNavigation.moveAway(bot, target, 0.3);
+            }
         }
     }
 
