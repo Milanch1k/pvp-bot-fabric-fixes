@@ -69,6 +69,7 @@ public class BotSettings {
     private boolean shieldBreakEnabled = true;    // Сбивать щит топором
     private int minHungerToEat = 14;              // Минимальный голод для еды
     private boolean autoPotionEnabled = true;     // Авто-зелья исцеления
+    private boolean cobwebEnabled = true;         // Использовать паутину
     
     // ============ Навигация и движение ============
     private boolean retreatEnabled = true;        // Отступать при низком HP
@@ -96,7 +97,15 @@ public class BotSettings {
     }
     
     public static void load() {
-        configPath = FabricLoader.getInstance().getConfigDir().resolve("pvp_bot.json");
+        // Создаём папку config/pvpbot если не существует
+        Path configDir = FabricLoader.getInstance().getConfigDir().resolve("pvpbot");
+        try {
+            Files.createDirectories(configDir);
+        } catch (Exception e) {
+            // Игнорируем
+        }
+        
+        configPath = configDir.resolve("settings.json");
         
         if (Files.exists(configPath)) {
             try (Reader reader = Files.newBufferedReader(configPath)) {
@@ -165,6 +174,7 @@ public class BotSettings {
     public boolean isShieldBreakEnabled() { return shieldBreakEnabled; }
     public int getMinHungerToEat() { return minHungerToEat; }
     public boolean isAutoPotionEnabled() { return autoPotionEnabled; }
+    public boolean isCobwebEnabled() { return cobwebEnabled; }
     
     // Getters - Navigation
     public boolean isRetreatEnabled() { return retreatEnabled; }
@@ -287,6 +297,7 @@ public class BotSettings {
         save(); 
     }
     public void setAutoPotionEnabled(boolean value) { this.autoPotionEnabled = value; save(); }
+    public void setCobwebEnabled(boolean value) { this.cobwebEnabled = value; save(); }
     
     // Setters - Navigation
     public void setRetreatEnabled(boolean value) { this.retreatEnabled = value; save(); }

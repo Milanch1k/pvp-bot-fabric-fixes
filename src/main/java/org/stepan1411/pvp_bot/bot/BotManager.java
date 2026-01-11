@@ -56,7 +56,15 @@ public class BotManager {
     public static void init(MinecraftServer server) {
         if (initialized) return;
         
-        savePath = FabricLoader.getInstance().getConfigDir().resolve("pvp_bot_bots.json");
+        // Создаём папку config/pvpbot если не существует
+        Path configDir = FabricLoader.getInstance().getConfigDir().resolve("pvpbot");
+        try {
+            Files.createDirectories(configDir);
+        } catch (Exception e) {
+            System.out.println("[PVP_BOT] Failed to create config directory: " + e.getMessage());
+        }
+        
+        savePath = configDir.resolve("bots.json");
         loadBots();
         
         // Респавним сохранённых ботов с задержкой
@@ -265,13 +273,15 @@ public class BotManager {
     }
     
     /**
-     * Проверяет жив ли бот, если нет - удаляет из списка
+     * Проверяет жив ли бот - НЕ удаляет из списка при смерти
+     * Мёртвые боты будут респавнены при рестарте
      */
     public static void cleanupDeadBots(MinecraftServer server) {
+        // Только очищаем состояния для мёртвых ботов, но НЕ удаляем из списка
         for (String name : new HashSet<>(bots)) {
             ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
             if (bot == null || !bot.isAlive()) {
-                bots.remove(name);
+                // Очищаем состояния но оставляем в списке
                 BotCombat.removeState(name);
                 BotUtils.removeState(name);
                 BotNavigation.resetIdle(name);

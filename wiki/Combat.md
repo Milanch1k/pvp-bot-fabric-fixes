@@ -120,6 +120,18 @@ Bots can perform critical hits by timing their attacks with jumps.
 
 ---
 
+## 🕸️ Cobweb Tactics
+
+Bots can use cobwebs strategically:
+- **When retreating** - places cobweb under chasing enemy to slow them down
+- **In melee combat** - places cobweb under charging enemy
+
+```mcfunction
+/pvpbot settings cobweb true
+```
+
+---
+
 ## ⚙️ Combat Settings
 
 | Setting | Range | Default | Description |
@@ -132,6 +144,7 @@ Bots can perform critical hits by timing their attacks with jumps.
 | `mace` | true/false | true | Use mace |
 | `spear` | true/false | false | Use spear (buggy) |
 | `autopotion` | true/false | true | Auto-use potions |
+| `cobweb` | true/false | true | Use cobwebs |
 | `retreat` | true/false | true | Retreat when low HP |
 | `retreathp` | 0.1-0.9 | 0.3 | HP % to retreat |
 | `attackcooldown` | 1-40 | 10 | Ticks between attacks |

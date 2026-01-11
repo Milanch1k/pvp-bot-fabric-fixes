@@ -36,6 +36,11 @@ public class BotCombat {
         public boolean isChargingSpear = false;
         public int spearChargeTicks = 0;
         
+        // Состояние паутины
+        public int cobwebCooldown = 0; // Кулдаун на размещение паутины
+        public boolean isPlacingCobweb = false; // Процесс размещения паутины
+        public int cobwebPlaceTicks = 0; // Тики размещения
+        
         public enum WeaponMode {
             MELEE,      // Ближний бой (меч/топор)
             RANGED,     // Дальний бой (лук/арбалет)
@@ -78,10 +83,19 @@ public class BotCombat {
         if (state.attackCooldown > 0) {
             state.attackCooldown--;
         }
+        if (state.cobwebCooldown > 0) {
+            state.cobwebCooldown--;
+        }
         
         // Находим цель
         Entity target = findTarget(bot, state, settings, server);
         state.target = target;
+        
+        // Обработка размещения паутины (приоритет над всем)
+        if (state.isPlacingCobweb && target != null) {
+            handleCobwebPlacement(bot, target, state, server);
+            return; // Не делаем ничего другого пока ставим паутину
+        }
         
         if (target == null) {
             // Нет цели - прекращаем натягивать лук
@@ -137,6 +151,10 @@ public class BotCombat {
             state.isRetreating = true;
             // Убегаем пока враг ближе 25 блоков (скорость 1.5 = максимальный бхоп)
             if (distance < 25.0) {
+                // Пробуем поставить паутину под врага при отступлении
+                if (settings.isCobwebEnabled() && distance < 8.0 && state.cobwebCooldown <= 0 && !state.isPlacingCobweb) {
+                    tryPlaceCobweb(bot, target, server);
+                }
                 BotNavigation.lookAway(bot, target);
                 BotNavigation.moveAway(bot, target, 1.5);
             }
@@ -427,6 +445,18 @@ public class BotCombat {
         }
         
         double meleeRange = settings.getMeleeRange();
+        
+        // Пробуем поставить паутину под врага если он близко и бежит на нас
+        if (settings.isCobwebEnabled() && distance < 6.0 && distance > 2.0 && state.cobwebCooldown <= 0 && !state.isPlacingCobweb) {
+            // Проверяем что враг движется к нам
+            if (target instanceof net.minecraft.entity.LivingEntity living) {
+                Vec3d targetVel = living.getVelocity();
+                double targetSpeed = Math.sqrt(targetVel.x * targetVel.x + targetVel.z * targetVel.z);
+                if (targetSpeed > 0.08) { // Враг движется
+                    tryPlaceCobweb(bot, target, server);
+                }
+            }
+        }
         
         // Движение к цели с навигацией
         if (distance > meleeRange) {
@@ -931,6 +961,101 @@ public class BotCombat {
             if (itemName.contains("spear")) return i;
         }
         return -1;
+    }
+    
+    /**
+     * Поиск паутины в инвентаре
+     */
+    private static int findCobweb(net.minecraft.entity.player.PlayerInventory inventory) {
+        for (int i = 0; i < 36; i++) {
+            ItemStack stack = inventory.getStack(i);
+            if (stack.getItem() == Items.COBWEB) return i;
+        }
+        return -1;
+    }
+    
+    /**
+     * Начинает процесс размещения паутины под врага
+     * Бот берёт паутину в руку, смотрит на врага и кликает ПКМ
+     */
+    private static boolean tryPlaceCobweb(ServerPlayerEntity bot, Entity target, net.minecraft.server.MinecraftServer server) {
+        CombatState state = getState(bot.getName().getString());
+        
+        // Уже размещаем паутину
+        if (state.isPlacingCobweb) return false;
+        
+        var inventory = bot.getInventory();
+        int cobwebSlot = findCobweb(inventory);
+        if (cobwebSlot < 0) return false;
+        
+        // Проверяем что враг не в паутине уже
+        var world = bot.getEntityWorld();
+        net.minecraft.util.math.BlockPos targetPos = target.getBlockPos();
+        if (world.getBlockState(targetPos).getBlock() == net.minecraft.block.Blocks.COBWEB) {
+            return false; // Уже в паутине
+        }
+        
+        // Перемещаем паутину в хотбар если нужно
+        if (cobwebSlot >= 9) {
+            ItemStack cobweb = inventory.getStack(cobwebSlot);
+            ItemStack current = inventory.getStack(0);
+            inventory.setStack(cobwebSlot, current);
+            inventory.setStack(0, cobweb);
+            cobwebSlot = 0;
+        }
+        
+        // Переключаем на паутину
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(cobwebSlot);
+        
+        // Начинаем процесс размещения
+        state.isPlacingCobweb = true;
+        state.cobwebPlaceTicks = 0;
+        
+        return true;
+    }
+    
+    /**
+     * Обработка процесса размещения паутины
+     * Вызывается каждый тик когда isPlacingCobweb = true
+     */
+    private static void handleCobwebPlacement(ServerPlayerEntity bot, Entity target, CombatState state, net.minecraft.server.MinecraftServer server) {
+        state.cobwebPlaceTicks++;
+        
+        // Смотрим на позицию врага (под ноги)
+        Vec3d targetFeet = new Vec3d(target.getX(), target.getY() - 0.5, target.getZ());
+        Vec3d botPos = bot.getEyePos();
+        
+        double dx = targetFeet.x - botPos.x;
+        double dy = targetFeet.y - botPos.y;
+        double dz = targetFeet.z - botPos.z;
+        
+        double horizontalDist = Math.sqrt(dx * dx + dz * dz);
+        
+        float yaw = (float) (Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
+        float pitch = (float) -(Math.atan2(dy, horizontalDist) * (180.0 / Math.PI));
+        
+        bot.setYaw(yaw);
+        bot.setPitch(pitch);
+        bot.setHeadYaw(yaw);
+        
+        // Кликаем ПКМ несколько раз для надёжности
+        if (state.cobwebPlaceTicks % 2 == 0 && state.cobwebPlaceTicks <= 6) {
+            try {
+                server.getCommandManager().getDispatcher().execute(
+                    "player " + bot.getName().getString() + " use once", 
+                    server.getCommandSource()
+                );
+            } catch (Exception e) {
+                // Игнорируем
+            }
+        }
+        
+        // Заканчиваем через 8 тиков
+        if (state.cobwebPlaceTicks >= 8) {
+            state.isPlacingCobweb = false;
+            state.cobwebPlaceTicks = 0;
+            state.cobwebCooldown = 20; // 1 секунда кулдаун
+        }
     }
     
     private static boolean hasArrows(net.minecraft.entity.player.PlayerInventory inventory) {

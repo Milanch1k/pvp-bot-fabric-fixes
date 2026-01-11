@@ -47,12 +47,14 @@ Complete list of all configuration options.
 | Setting | Type | Range | Default | Description |
 |---------|------|-------|---------|-------------|
 | `autopotion` | bool | - | true | Auto-use healing/buff potions |
+| `cobweb` | bool | - | true | Use cobwebs to slow enemies |
 
 Bots automatically use:
 - **Healing potions** when HP is low
 - **Strength potions** when entering combat
 - **Speed potions** when entering combat  
 - **Fire resistance potions** when entering combat
+- **Cobwebs** to slow down enemies (when retreating or enemy is charging)
 
 All buff potions are thrown at once when combat starts or when effects expire.
 
