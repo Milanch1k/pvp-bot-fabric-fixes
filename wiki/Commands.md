@@ -18,7 +18,8 @@ All PVP Bot commands start with `/pvpbot`. Requires permission level 2 (operator
 
 | Command | Description |
 |---------|-------------|
-| `/pvpbot spawn <name>` | Create a new bot |
+| `/pvpbot spawn [name]` | Create a new bot (random name if not specified) |
+| `/pvpbot massspawn <count>` | Spawn multiple bots with random names (1-50) |
 | `/pvpbot remove <name>` | Remove a bot |
 | `/pvpbot removeall` | Remove all bots |
 | `/pvpbot list` | List all active bots |
@@ -27,8 +28,14 @@ All PVP Bot commands start with `/pvpbot`. Requires permission level 2 (operator
 ### Examples
 
 ```mcfunction
+# Create a bot with random name
+/pvpbot spawn
+
 # Create a bot named "Guard1"
 /pvpbot spawn Guard1
+
+# Spawn 10 bots with random names
+/pvpbot massspawn 10
 
 # Remove the bot
 /pvpbot remove Guard1
@@ -74,6 +81,7 @@ All PVP Bot commands start with `/pvpbot`. Requires permission level 2 (operator
 | `/pvpbot faction addnear <faction> <radius>` | Add all nearby bots |
 | `/pvpbot faction give <faction> <item>` | Give item to all members |
 | `/pvpbot faction givekit <faction> <kit>` | Give kit to all members |
+| `/pvpbot faction attack <faction> <target>` | All bots in faction attack target |
 | `/pvpbot faction list` | List all factions |
 | `/pvpbot faction info <faction>` | Show faction details |
 
@@ -90,6 +98,9 @@ All PVP Bot commands start with `/pvpbot`. Requires permission level 2 (operator
 
 # Make them enemies
 /pvpbot faction hostile RedTeam BlueTeam
+
+# Order entire faction to attack
+/pvpbot faction attack RedTeam Steve
 
 # Give swords to everyone in RedTeam
 /pvpbot faction give RedTeam diamond_sword

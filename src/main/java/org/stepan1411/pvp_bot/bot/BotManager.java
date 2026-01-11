@@ -1,15 +1,184 @@
 package org.stepan1411.pvp_bot.bot;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.world.GameMode;
 
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class BotManager {
 
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Set<String> bots = new HashSet<>();
+    private static final Map<String, BotData> botDataMap = new HashMap<>();
+    private static Path savePath;
+    private static boolean initialized = false;
+    
+    /**
+     * Данные бота для сохранения
+     */
+    public static class BotData {
+        public String name;
+        public double x, y, z;
+        public float yaw, pitch;
+        public String dimension; // minecraft:overworld, minecraft:the_nether, minecraft:the_end
+        public String gamemode; // survival, creative, adventure, spectator
+        
+        public BotData() {}
+        
+        public BotData(ServerPlayerEntity bot) {
+            this.name = bot.getName().getString();
+            this.x = bot.getX();
+            this.y = bot.getY();
+            this.z = bot.getZ();
+            this.yaw = bot.getYaw();
+            this.pitch = bot.getPitch();
+            this.dimension = bot.getEntityWorld().getRegistryKey().getValue().toString();
+            this.gamemode = bot.interactionManager.getGameMode().asString();
+        }
+    }
+
+    /**
+     * Инициализация - загрузка сохранённых ботов
+     */
+    public static void init(MinecraftServer server) {
+        if (initialized) return;
+        
+        savePath = FabricLoader.getInstance().getConfigDir().resolve("pvp_bot_bots.json");
+        loadBots();
+        
+        // Респавним сохранённых ботов с задержкой
+        if (!botDataMap.isEmpty()) {
+            System.out.println("[PVP_BOT] Restoring " + botDataMap.size() + " bots...");
+            Map<String, BotData> botsToRestore = new HashMap<>(botDataMap);
+            bots.clear();
+            botDataMap.clear();
+            
+            // Запускаем респавн с задержкой
+            server.execute(() -> restoreBotsDelayed(server, botsToRestore, 0));
+        }
+        
+        initialized = true;
+    }
+    
+    private static void restoreBotsDelayed(MinecraftServer server, Map<String, BotData> botsToRestore, int index) {
+        if (index >= botsToRestore.size()) {
+            System.out.println("[PVP_BOT] Restored " + bots.size() + " bots");
+            return;
+        }
+        
+        String[] names = botsToRestore.keySet().toArray(new String[0]);
+        if (index < names.length) {
+            String name = names[index];
+            BotData data = botsToRestore.get(name);
+            
+            // Спавним бота с позицией и измерением
+            var dispatcher = server.getCommandManager().getDispatcher();
+            try {
+                // Формат: player NAME spawn at X Y Z facing YAW PITCH in DIMENSION in GAMEMODE
+                String command = String.format(
+                    "player %s spawn at %.2f %.2f %.2f facing %.2f %.2f in %s in %s",
+                    name, data.x, data.y, data.z, data.yaw, data.pitch, data.dimension, data.gamemode
+                );
+                dispatcher.execute(command, server.getCommandSource());
+                bots.add(name);
+                botDataMap.put(name, data);
+            } catch (Exception e) {
+                // Пробуем упрощённую команду
+                try {
+                    String simpleCommand = String.format(
+                        "player %s spawn at %.2f %.2f %.2f",
+                        name, data.x, data.y, data.z
+                    );
+                    dispatcher.execute(simpleCommand, server.getCommandSource());
+                    bots.add(name);
+                    botDataMap.put(name, data);
+                } catch (Exception e2) {
+                    System.out.println("[PVP_BOT] Failed to restore bot: " + name);
+                }
+            }
+            
+            // Следующий бот через 10 тиков
+            final int nextIndex = index + 1;
+            server.execute(() -> {
+                final int[] delay = {0};
+                server.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        delay[0]++;
+                        if (delay[0] < 10) {
+                            server.execute(this);
+                        } else {
+                            restoreBotsDelayed(server, botsToRestore, nextIndex);
+                        }
+                    }
+                });
+            });
+        }
+    }
+    
+    /**
+     * Обновление данных всех ботов перед сохранением
+     */
+    public static void updateBotData(MinecraftServer server) {
+        for (String name : bots) {
+            ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
+            if (bot != null && bot.isAlive()) {
+                botDataMap.put(name, new BotData(bot));
+            }
+        }
+    }
+    
+    /**
+     * Сохранение списка ботов
+     */
+    public static void saveBots() {
+        if (savePath == null) return;
+        
+        try (Writer writer = Files.newBufferedWriter(savePath)) {
+            GSON.toJson(botDataMap, writer);
+        } catch (Exception e) {
+            System.out.println("[PVP_BOT] Failed to save bots: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Загрузка списка ботов
+     */
+    private static void loadBots() {
+        if (savePath == null || !Files.exists(savePath)) return;
+        
+        try (Reader reader = Files.newBufferedReader(savePath)) {
+            Map<String, BotData> loaded = GSON.fromJson(reader, new TypeToken<Map<String, BotData>>(){}.getType());
+            if (loaded != null) {
+                botDataMap.putAll(loaded);
+                bots.addAll(loaded.keySet());
+            }
+        } catch (Exception e) {
+            System.out.println("[PVP_BOT] Failed to load bots: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Сброс при выходе из мира
+     */
+    public static void reset(MinecraftServer server) {
+        updateBotData(server);
+        saveBots();
+        initialized = false;
+    }
 
     public static boolean spawnBot(MinecraftServer server, String name, ServerCommandSource source) {
         // Проверяем, существует ли уже игрок с таким именем на сервере
@@ -39,12 +208,14 @@ public class BotManager {
         }
         
         bots.add(name);
+        saveBots();
         return true;
     }
 
     public static boolean removeBot(MinecraftServer server, String name, ServerCommandSource source) {
         // Удаляем из списка в любом случае
         boolean wasInList = bots.remove(name);
+        saveBots();
         
         // Очищаем все состояния бота
         BotCombat.removeState(name);
@@ -82,6 +253,7 @@ public class BotManager {
             }
         }
         bots.clear();
+        saveBots();
     }
 
     public static int getBotCount() {

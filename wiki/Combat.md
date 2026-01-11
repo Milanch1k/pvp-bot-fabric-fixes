@@ -87,8 +87,27 @@ Bots eat food when:
 /pvpbot settings minhunger 14
 ```
 
+### Auto-Potions
+Bots automatically use potions:
+- **Healing potions** - when HP is low (splash or drinkable)
+- **Strength potions** - when entering combat
+- **Speed potions** - when entering combat
+- **Fire resistance potions** - when entering combat
+
+All buff potions are thrown at once when combat starts. Bots re-apply buffs when effects expire (< 5 seconds remaining).
+
+```mcfunction
+/pvpbot settings autopotion true
+```
+
 ### Retreat
-When health is low, bots retreat while eating golden apples.
+When health is low, bots retreat while eating/healing.
+Retreat is disabled if bot has no food (fights to the death).
+
+```mcfunction
+/pvpbot settings retreat true
+/pvpbot settings retreathp 0.3  # 30% HP
+```
 
 ---
 
@@ -111,6 +130,10 @@ Bots can perform critical hits by timing their attacks with jumps.
 | `criticals` | true/false | true | Critical hits |
 | `ranged` | true/false | true | Use bows |
 | `mace` | true/false | true | Use mace |
+| `spear` | true/false | false | Use spear (buggy) |
+| `autopotion` | true/false | true | Auto-use potions |
+| `retreat` | true/false | true | Retreat when low HP |
+| `retreathp` | 0.1-0.9 | 0.3 | HP % to retreat |
 | `attackcooldown` | 1-40 | 10 | Ticks between attacks |
 | `meleerange` | 2-6 | 3.5 | Melee attack distance |
 | `viewdistance` | 5-128 | 64 | Target search range |

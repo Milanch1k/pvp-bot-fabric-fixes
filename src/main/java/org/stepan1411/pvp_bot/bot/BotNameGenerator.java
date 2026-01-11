@@ -78,33 +78,44 @@ public class BotNameGenerator {
     }
     
     /**
-     * Генерирует уникальное имя бота
+     * Генерирует уникальное имя бота (максимум 16 символов)
      */
     public static String generateUniqueName() {
         Set<String> existingBots = BotManager.getAllBots();
         
         for (int attempt = 0; attempt < 100; attempt++) {
             String name = generateName();
-            if (!existingBots.contains(name)) {
+            // Minecraft ограничение - максимум 16 символов
+            if (name.length() <= 16 && !existingBots.contains(name)) {
                 return name;
             }
         }
         
-        // Если не удалось найти уникальное - добавляем число
-        String baseName = generateName();
-        int num = 1;
-        while (existingBots.contains(baseName + num)) {
-            num++;
+        // Если не удалось найти уникальное - генерируем короткое с числом
+        for (int num = 1; num < 1000; num++) {
+            String name = "Bot" + num;
+            if (!existingBots.contains(name)) {
+                return name;
+            }
         }
-        return baseName + num;
+        return "Bot" + System.currentTimeMillis() % 10000;
     }
     
     /**
-     * Генерирует случайное имя (Prefix + Suffix)
+     * Генерирует случайное имя (Prefix + Suffix), максимум 16 символов
      */
     private static String generateName() {
+        for (int i = 0; i < 20; i++) {
+            String prefix = PREFIXES.get(random.nextInt(PREFIXES.size()));
+            String suffix = SUFFIXES.get(random.nextInt(SUFFIXES.size()));
+            String name = prefix + suffix;
+            if (name.length() <= 16) {
+                return name;
+            }
+        }
+        // Fallback - короткое имя
         String prefix = PREFIXES.get(random.nextInt(PREFIXES.size()));
-        String suffix = SUFFIXES.get(random.nextInt(SUFFIXES.size()));
-        return prefix + suffix;
+        if (prefix.length() > 12) prefix = prefix.substring(0, 12);
+        return prefix + random.nextInt(1000);
     }
 }

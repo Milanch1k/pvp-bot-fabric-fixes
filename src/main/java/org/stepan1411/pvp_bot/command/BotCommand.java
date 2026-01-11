@@ -642,16 +642,47 @@ public class BotCommand {
     }
     
     private static int massSpawnBots(ServerCommandSource source, int count) {
-        int spawned = 0;
-        for (int i = 0; i < count; i++) {
-            String name = BotNameGenerator.generateUniqueName();
-            if (BotManager.spawnBot(source.getServer(), name, source)) {
-                spawned++;
-            }
+        var server = source.getServer();
+        final int[] spawned = {0};
+        final int[] current = {0};
+        
+        source.sendFeedback(() -> Text.literal("Spawning " + count + " bots "), false);
+        
+        // Спавним ботов с задержкой через scheduled tasks
+        scheduleSpawn(server, source, count, spawned, current);
+        
+        return 1;
+    }
+    
+    private static void scheduleSpawn(net.minecraft.server.MinecraftServer server, ServerCommandSource source, int total, int[] spawned, int[] current) {
+        if (current[0] >= total) {
+            source.sendFeedback(() -> Text.literal("Finished! Spawned " + spawned[0] + " bots."), true);
+            return;
         }
-        final int total = spawned;
-        source.sendFeedback(() -> Text.literal("Spawned " + total + " bots!"), true);
-        return spawned;
+        
+        // Спавним одного бота
+        String name = BotNameGenerator.generateUniqueName();
+        if (BotManager.spawnBot(server, name, source)) {
+            spawned[0]++;
+        }
+        current[0]++;
+        
+        // Планируем следующий спавн через 5 тиков
+        server.execute(() -> {
+            // Используем простую задержку через тики сервера
+            final int[] delay = {0};
+            server.execute(new Runnable() {
+                @Override
+                public void run() {
+                    delay[0]++;
+                    if (delay[0] < 5) {
+                        server.execute(this);
+                    } else {
+                        scheduleSpawn(server, source, total, spawned, current);
+                    }
+                }
+            });
+        });
     }
 
     private static int removeBot(ServerCommandSource source, String name) {

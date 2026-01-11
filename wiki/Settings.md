@@ -32,10 +32,29 @@ Complete list of all configuration options.
 | `criticals` | bool | - | true | Perform critical hits |
 | `ranged` | bool | - | true | Use bows/crossbows |
 | `mace` | bool | - | true | Use mace with wind charges |
+| `spear` | bool | - | false | Use spear (disabled due to Carpet bug) |
 | `attackcooldown` | int | 1-40 | 10 | Ticks between attacks |
 | `meleerange` | double | 2-6 | 3.5 | Melee attack distance |
 | `movespeed` | double | 0.1-2.0 | 1.0 | Movement speed multiplier |
 | `viewdistance` | double | 5-128 | 64 | Maximum target detection range |
+| `retreat` | bool | - | true | Retreat when low HP |
+| `retreathp` | double | 0.1-0.9 | 0.3 | HP percent to start retreat (30%) |
+
+---
+
+## 🧪 Potion Settings
+
+| Setting | Type | Range | Default | Description |
+|---------|------|-------|---------|-------------|
+| `autopotion` | bool | - | true | Auto-use healing/buff potions |
+
+Bots automatically use:
+- **Healing potions** when HP is low
+- **Strength potions** when entering combat
+- **Speed potions** when entering combat  
+- **Fire resistance potions** when entering combat
+
+All buff potions are thrown at once when combat starts or when effects expire.
 
 ---
 
@@ -94,14 +113,19 @@ Complete list of all configuration options.
 
 ---
 
-## 💾 Configuration File
+## 💾 Configuration Files
 
-All settings are saved in:
+Settings are saved in:
 ```
 config/pvp_bot.json
 ```
 
-Settings persist across server restarts.
+Bot data (positions, dimensions, gamemodes) is saved in:
+```
+config/pvp_bot_bots.json
+```
+
+Both settings and bots persist across server restarts. Bots are automatically restored when the server starts.
 
 ---
 
