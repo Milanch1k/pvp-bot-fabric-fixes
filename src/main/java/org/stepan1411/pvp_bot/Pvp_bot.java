@@ -4,6 +4,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import org.stepan1411.pvp_bot.bot.BotDamageHandler;
+import org.stepan1411.pvp_bot.bot.BotKits;
 import org.stepan1411.pvp_bot.bot.BotManager;
 import org.stepan1411.pvp_bot.bot.BotTicker;
 import org.stepan1411.pvp_bot.command.BotCommand;
@@ -26,6 +27,7 @@ public class Pvp_bot implements ModInitializer {
         // Инициализация при старте сервера - восстановление ботов
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             BotManager.init(server);
+            BotKits.init(server);
         });
         
         // Сохранение при остановке сервера

@@ -34,6 +34,9 @@ public class BotCommand {
                 .collect(Collectors.toList()), 
             builder);
     
+    // Подсказки для всех игроков (боты + игроки)
+    private static final SuggestionProvider<ServerCommandSource> PLAYER_SUGGESTIONS = TARGET_SUGGESTIONS;
+    
     // Подсказки для фракций
     private static final SuggestionProvider<ServerCommandSource> FACTION_SUGGESTIONS = (ctx, builder) -> 
         CommandSource.suggestMatching(BotFaction.getAllFactions(), builder);
@@ -77,6 +80,11 @@ public class BotCommand {
                 // /pvpbot list
                 .then(CommandManager.literal("list")
                     .executes(ctx -> listBots(ctx.getSource()))
+                )
+                
+                // /pvpbot sync - синхронизировать список ботов с сервером
+                .then(CommandManager.literal("sync")
+                    .executes(ctx -> syncBots(ctx.getSource()))
                 )
                 
                 // /pvpbot settings
@@ -382,6 +390,28 @@ public class BotCommand {
                             })
                         )
                     )
+                    
+                    // === Weapon Settings ===
+                    .then(CommandManager.literal("prefersword")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("prefersword: " + BotSettings.get().isPreferSword()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setPreferSword(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Prefer sword: " + BotSettings.get().isPreferSword()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(CommandManager.literal("shieldbreak")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("shieldbreak: " + BotSettings.get().isShieldBreakEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setShieldBreakEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Shield break: " + BotSettings.get().isShieldBreakEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
                 )
                 
                 // /pvpbot attack <botname> <target> - с подсказками
@@ -493,11 +523,19 @@ public class BotCommand {
                     .then(CommandManager.literal("addnear")
                         .then(CommandManager.argument("faction", StringArgumentType.word())
                             .suggests(FACTION_SUGGESTIONS)
-                            .then(CommandManager.argument("radius", DoubleArgumentType.doubleArg(1.0, 100.0))
+                            .then(CommandManager.argument("radius", DoubleArgumentType.doubleArg(1.0, 10000.0))
                                 .executes(ctx -> addNearbyBotsToFaction(ctx.getSource(), 
                                     StringArgumentType.getString(ctx, "faction"),
                                     DoubleArgumentType.getDouble(ctx, "radius")))
                             )
+                        )
+                    )
+                    // /pvpbot faction addall <faction> - добавить ВСЕХ ботов в фракцию
+                    .then(CommandManager.literal("addall")
+                        .then(CommandManager.argument("faction", StringArgumentType.word())
+                            .suggests(FACTION_SUGGESTIONS)
+                            .executes(ctx -> addAllBotsToFaction(ctx.getSource(), 
+                                StringArgumentType.getString(ctx, "faction")))
                         )
                     )
                     // /pvpbot faction give <faction> <item> [count] - выдать предмет всей фракции
@@ -563,14 +601,14 @@ public class BotCommand {
                     .executes(ctx -> listKits(ctx.getSource()))
                 )
                 
-                // /pvpbot givekit <botname> <kitname> - выдать кит боту
+                // /pvpbot givekit <playername> <kitname> - выдать кит игроку или боту
                 .then(CommandManager.literal("givekit")
-                    .then(CommandManager.argument("botname", StringArgumentType.word())
-                        .suggests(BOT_SUGGESTIONS)
+                    .then(CommandManager.argument("playername", StringArgumentType.word())
+                        .suggests(PLAYER_SUGGESTIONS)
                         .then(CommandManager.argument("kitname", StringArgumentType.word())
                             .suggests(KIT_SUGGESTIONS)
-                            .executes(ctx -> giveKitToBot(ctx.getSource(), 
-                                StringArgumentType.getString(ctx, "botname"),
+                            .executes(ctx -> giveKitToPlayer(ctx.getSource(), 
+                                StringArgumentType.getString(ctx, "playername"),
                                 StringArgumentType.getString(ctx, "kitname")))
                         )
                     )
@@ -714,6 +752,29 @@ public class BotCommand {
             }
         }
         return bots.size();
+    }
+    
+    private static int syncBots(ServerCommandSource source) {
+        var server = source.getServer();
+        int beforeCount = BotManager.getAllBots().size();
+        
+        // Показываем всех игроков и их классы для отладки
+        source.sendFeedback(() -> Text.literal("=== Players on server ==="), false);
+        for (var player : server.getPlayerManager().getPlayerList()) {
+            String name = player.getName().getString();
+            String className = player.getClass().getName();
+            boolean inList = BotManager.getAllBots().contains(name);
+            source.sendFeedback(() -> Text.literal(" - " + name + " [" + className + "] " + (inList ? "(in list)" : "(NOT in list)")), false);
+        }
+        
+        // Синхронизируем
+        BotManager.syncBots(server);
+        
+        int afterCount = BotManager.getAllBots().size();
+        int added = afterCount - beforeCount;
+        
+        source.sendFeedback(() -> Text.literal("Synced! Added " + added + " bots. Total: " + afterCount), true);
+        return added;
     }
 
     private static int showSettings(ServerCommandSource source) {
@@ -870,6 +931,25 @@ public class BotCommand {
         return count;
     }
     
+    private static int addAllBotsToFaction(ServerCommandSource source, String faction) {
+        if (!BotFaction.getAllFactions().contains(faction)) {
+            source.sendError(Text.literal("Faction '" + faction + "' not found!"));
+            return 0;
+        }
+        
+        var allBots = BotManager.getAllBots();
+        int count = 0;
+        
+        for (String botName : allBots) {
+            BotFaction.addMember(faction, botName);
+            count++;
+        }
+        
+        final int added = count;
+        source.sendFeedback(() -> Text.literal("Added " + added + " bots to faction '" + faction + "'"), true);
+        return count;
+    }
+    
     private static int showInventory(ServerCommandSource source, String botName) {
         if (!BotManager.getAllBots().contains(botName)) {
             source.sendError(Text.literal("Bot '" + botName + "' not found!"));
@@ -1007,25 +1087,21 @@ public class BotCommand {
         return 1;
     }
     
-    private static int giveKitToBot(ServerCommandSource source, String botName, String kitName) {
-        if (!BotManager.getAllBots().contains(botName)) {
-            source.sendError(Text.literal("Bot '" + botName + "' not found!"));
-            return 0;
-        }
-        
+    private static int giveKitToPlayer(ServerCommandSource source, String playerName, String kitName) {
         if (!BotKits.kitExists(kitName)) {
             source.sendError(Text.literal("Kit '" + kitName + "' not found!"));
             return 0;
         }
         
-        var bot = BotManager.getBot(source.getServer(), botName);
-        if (bot == null) {
-            source.sendError(Text.literal("Bot '" + botName + "' is offline!"));
+        // Ищем игрока на сервере (бот или обычный игрок)
+        var player = source.getServer().getPlayerManager().getPlayer(playerName);
+        if (player == null) {
+            source.sendError(Text.literal("Player '" + playerName + "' not found!"));
             return 0;
         }
         
-        if (BotKits.giveKit(kitName, bot)) {
-            source.sendFeedback(() -> Text.literal("Gave kit '" + kitName + "' to bot '" + botName + "'"), true);
+        if (BotKits.giveKit(kitName, player)) {
+            source.sendFeedback(() -> Text.literal("Gave kit '" + kitName + "' to '" + playerName + "'"), true);
             return 1;
         } else {
             source.sendError(Text.literal("Failed to give kit!"));

@@ -67,8 +67,9 @@ public class BotManager {
         savePath = configDir.resolve("bots.json");
         loadBots();
         
-        // Респавним сохранённых ботов с задержкой
-        if (!botDataMap.isEmpty()) {
+        // Респавним сохранённых ботов только если включена настройка botsRelogs
+        BotSettings settings = BotSettings.get();
+        if (settings.isBotsRelogs() && !botDataMap.isEmpty()) {
             System.out.println("[PVP_BOT] Restoring " + botDataMap.size() + " bots...");
             Map<String, BotData> botsToRestore = new HashMap<>(botDataMap);
             bots.clear();
@@ -76,6 +77,11 @@ public class BotManager {
             
             // Запускаем респавн с задержкой
             server.execute(() -> restoreBotsDelayed(server, botsToRestore, 0));
+        } else if (!settings.isBotsRelogs()) {
+            // Если релоги выключены - очищаем список
+            bots.clear();
+            botDataMap.clear();
+            saveBots();
         }
         
         initialized = true;
@@ -139,13 +145,16 @@ public class BotManager {
     
     /**
      * Обновление данных всех ботов перед сохранением
+     * Сохраняем данные только живых ботов, мёртвые сохраняют последнюю позицию
      */
     public static void updateBotData(MinecraftServer server) {
         for (String name : bots) {
             ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
             if (bot != null && bot.isAlive()) {
+                // Обновляем данные живого бота
                 botDataMap.put(name, new BotData(bot));
             }
+            // Мёртвые боты сохраняют последние данные из botDataMap
         }
     }
     
@@ -195,6 +204,8 @@ public class BotManager {
             // Бот уже существует и жив
             if (!bots.contains(name)) {
                 bots.add(name); // Добавляем в список если не было
+                botDataMap.put(name, new BotData(existingPlayer));
+                saveBots();
             }
             return false;
         }
@@ -211,18 +222,47 @@ public class BotManager {
                 // Force gamemode change after spawn
                 dispatcher.execute("gamemode survival " + name, server.getCommandSource());
             } catch (Exception e2) {
-                return false;
+                // Даже если команда выбросила исключение, проверим появился ли бот
             }
         }
         
-        bots.add(name);
-        saveBots();
+        // Проверяем появился ли бот на сервере (независимо от результата команды)
+        // Даём небольшую задержку через execute
+        server.execute(() -> {
+            ServerPlayerEntity newBot = server.getPlayerManager().getPlayer(name);
+            if (newBot != null && !bots.contains(name)) {
+                bots.add(name);
+                botDataMap.put(name, new BotData(newBot));
+                saveBots();
+                System.out.println("[PVP_BOT] Added bot to list: " + name);
+            }
+        });
+        
+        // Добавляем в список сразу (на случай если бот уже появился)
+        ServerPlayerEntity newBot = server.getPlayerManager().getPlayer(name);
+        if (newBot != null) {
+            if (!bots.contains(name)) {
+                bots.add(name);
+                botDataMap.put(name, new BotData(newBot));
+                saveBots();
+            }
+            return true;
+        }
+        
+        // Бот ещё не появился, но добавим имя в список
+        // (он появится позже и будет обработан)
+        if (!bots.contains(name)) {
+            bots.add(name);
+            saveBots();
+        }
+        
         return true;
     }
 
     public static boolean removeBot(MinecraftServer server, String name, ServerCommandSource source) {
         // Удаляем из списка в любом случае
         boolean wasInList = bots.remove(name);
+        botDataMap.remove(name); // Удаляем данные бота
         saveBots();
         
         // Очищаем все состояния бота
@@ -261,6 +301,7 @@ public class BotManager {
             }
         }
         bots.clear();
+        botDataMap.clear(); // Очищаем данные всех ботов
         saveBots();
     }
 
@@ -273,19 +314,59 @@ public class BotManager {
     }
     
     /**
-     * Проверяет жив ли бот - НЕ удаляет из списка при смерти
-     * Мёртвые боты будут респавнены при рестарте
+     * Проверяет жив ли бот - удаляет мёртвых из списка
      */
     public static void cleanupDeadBots(MinecraftServer server) {
-        // Только очищаем состояния для мёртвых ботов, но НЕ удаляем из списка
+        boolean changed = false;
         for (String name : new HashSet<>(bots)) {
             ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
-            if (bot == null || !bot.isAlive()) {
-                // Очищаем состояния но оставляем в списке
+            // Бот мёртв если: не существует, не жив, или здоровье <= 0
+            boolean isDead = bot == null || !bot.isAlive() || bot.getHealth() <= 0 || bot.isDead();
+            if (isDead) {
+                // Удаляем мёртвого бота из списка
+                bots.remove(name);
+                botDataMap.remove(name);
                 BotCombat.removeState(name);
                 BotUtils.removeState(name);
                 BotNavigation.resetIdle(name);
+                changed = true;
+                System.out.println("[PVP_BOT] Removed dead bot: " + name);
             }
+        }
+        if (changed) {
+            saveBots();
+        }
+    }
+    
+    /**
+     * Синхронизирует список ботов с реальными Carpet ботами на сервере
+     * Добавляет ботов которые есть на сервере но нет в списке
+     */
+    public static void syncBots(MinecraftServer server) {
+        boolean changed = false;
+        // Проверяем всех игроков на сервере
+        for (var player : server.getPlayerManager().getPlayerList()) {
+            String name = player.getName().getString();
+            
+            // Пропускаем если уже в списке
+            if (bots.contains(name)) continue;
+            
+            // Carpet боты имеют класс carpet.patches.EntityPlayerMPFake
+            String className = player.getClass().getName();
+            boolean isFakePlayer = className.contains("EntityPlayerMPFake") || 
+                                   className.contains("FakePlayer") ||
+                                   className.contains("fake") ||
+                                   className.contains("Fake");
+            
+            if (isFakePlayer) {
+                bots.add(name);
+                botDataMap.put(name, new BotData(player));
+                changed = true;
+                System.out.println("[PVP_BOT] Synced Carpet bot: " + name);
+            }
+        }
+        if (changed) {
+            saveBots();
         }
     }
 }

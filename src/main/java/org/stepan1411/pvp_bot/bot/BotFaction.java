@@ -181,7 +181,15 @@ public class BotFaction {
     // ============ Сохранение/загрузка ============
     
     public static void load() {
-        configPath = FabricLoader.getInstance().getConfigDir().resolve("pvp_bot_factions.json");
+        // Создаём папку config/pvpbot если не существует
+        Path configDir = FabricLoader.getInstance().getConfigDir().resolve("pvpbot");
+        try {
+            Files.createDirectories(configDir);
+        } catch (Exception e) {
+            // Игнорируем
+        }
+        
+        configPath = configDir.resolve("factions.json");
         
         if (Files.exists(configPath)) {
             try (Reader reader = Files.newBufferedReader(configPath)) {

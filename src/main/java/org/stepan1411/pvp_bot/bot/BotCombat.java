@@ -433,12 +433,6 @@ public class BotCombat {
     private static void handleMeleeCombat(ServerPlayerEntity bot, Entity target, CombatState state, double distance, BotSettings settings, net.minecraft.server.MinecraftServer server) {
         var inventory = bot.getInventory();
         
-        // Экипируем меч/топор
-        int weaponSlot = findMeleeWeapon(inventory);
-        if (weaponSlot >= 0 && weaponSlot < 9) {
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
-        }
-        
         // Прекращаем натягивать лук если натягивали
         if (state.isDrawingBow) {
             stopUsingBow(bot, state);
@@ -471,17 +465,51 @@ public class BotCombat {
             // Проверяем нужно ли сбить щит
             if (settings.isShieldBreakEnabled() && target instanceof PlayerEntity player && player.isBlocking()) {
                 // Переключаемся на топор для сбития щита
-                BotUtils.tryDisableShield(bot, target);
-            } else {
-                // Критический удар - прыжок перед ударом
-                if (settings.isCriticalsEnabled() && bot.isOnGround()) {
-                    bot.jump();
+                int axeSlot = findAxe(inventory);
+                if (axeSlot >= 0) {
+                    // Перемещаем топор в хотбар если нужно
+                    if (axeSlot >= 9) {
+                        ItemStack axe = inventory.getStack(axeSlot);
+                        ItemStack current = inventory.getStack(0);
+                        inventory.setStack(axeSlot, current);
+                        inventory.setStack(0, axe);
+                        axeSlot = 0;
+                    }
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(axeSlot);
+                    
+                    // Атакуем топором чтобы сбить щит
+                    attackWithCarpet(bot, target, server);
+                    state.attackCooldown = settings.getAttackCooldown();
+                    
+                    // После атаки топором сразу переключаемся обратно на меч
+                    int swordSlot = findMeleeWeapon(inventory);
+                    if (swordSlot >= 0 && swordSlot < 9) {
+                        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(swordSlot);
+                    }
+                    return;
                 }
+            }
+            
+            // Обычная атака - экипируем меч/топор
+            int weaponSlot = findMeleeWeapon(inventory);
+            if (weaponSlot >= 0 && weaponSlot < 9) {
+                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+            }
+            
+            // Критический удар - прыжок перед ударом
+            if (settings.isCriticalsEnabled() && bot.isOnGround()) {
+                bot.jump();
             }
             
             // Атакуем через Carpet для надёжности
             attackWithCarpet(bot, target, server);
             state.attackCooldown = settings.getAttackCooldown();
+        } else {
+            // Не атакуем - просто держим оружие в руке
+            int weaponSlot = findMeleeWeapon(inventory);
+            if (weaponSlot >= 0 && weaponSlot < 9) {
+                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+            }
         }
     }
     
@@ -884,6 +912,32 @@ public class BotCombat {
     // ============ Поиск оружия в инвентаре ============
     
     private static int findMeleeWeapon(net.minecraft.entity.player.PlayerInventory inventory) {
+        BotSettings settings = BotSettings.get();
+        boolean preferSword = settings.isPreferSword();
+        
+        int bestSlot = -1;
+        double bestScore = 0;
+        
+        for (int i = 0; i < 36; i++) {
+            ItemStack stack = inventory.getStack(i);
+            if (stack.isEmpty()) continue;
+            
+            Item item = stack.getItem();
+            double score = getMeleeScore(item, preferSword);
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestSlot = i;
+            }
+        }
+        
+        return bestSlot;
+    }
+    
+    /**
+     * Поиск топора для сбития щита
+     */
+    private static int findAxe(net.minecraft.entity.player.PlayerInventory inventory) {
         int bestSlot = -1;
         double bestDamage = 0;
         
@@ -892,15 +946,42 @@ public class BotCombat {
             if (stack.isEmpty()) continue;
             
             Item item = stack.getItem();
-            double damage = getMeleeDamage(item);
-            
-            if (damage > bestDamage) {
-                bestDamage = damage;
-                bestSlot = i;
+            if (item instanceof AxeItem) {
+                double damage = getAxeDamage(item);
+                if (damage > bestDamage) {
+                    bestDamage = damage;
+                    bestSlot = i;
+                }
             }
         }
         
         return bestSlot;
+    }
+    
+    private static double getAxeDamage(Item item) {
+        if (item == Items.NETHERITE_AXE) return 10;
+        if (item == Items.DIAMOND_AXE) return 9;
+        if (item == Items.IRON_AXE) return 9;
+        if (item == Items.STONE_AXE) return 9;
+        if (item == Items.GOLDEN_AXE) return 7;
+        if (item == Items.WOODEN_AXE) return 7;
+        return 0;
+    }
+    
+    /**
+     * Получить "очки" оружия с учётом preferSword
+     * Если preferSword = true, мечи получают бонус +5 к очкам
+     */
+    private static double getMeleeScore(Item item, boolean preferSword) {
+        double baseDamage = getMeleeDamage(item);
+        if (baseDamage == 0) return 0;
+        
+        // Если предпочитаем меч - даём мечам бонус
+        if (preferSword && item instanceof SwordItem) {
+            return baseDamage + 5; // Меч всегда будет выбран если есть
+        }
+        
+        return baseDamage;
     }
     
     private static double getMeleeDamage(Item item) {

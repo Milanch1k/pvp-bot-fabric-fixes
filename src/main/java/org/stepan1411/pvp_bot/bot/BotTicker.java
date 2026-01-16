@@ -17,9 +17,11 @@ public class BotTicker {
         
         int interval = BotSettings.get().getCheckInterval();
         
-        // Очищаем мёртвых ботов каждые 100 тиков (5 секунд)
-        if (tickCounter % 100 == 0) {
+        // Очищаем мёртвых ботов каждые 20 тиков (1 секунда)
+        if (tickCounter % 20 == 0) {
             BotManager.cleanupDeadBots(server);
+            // Синхронизируем список ботов с сервером
+            BotManager.syncBots(server);
         }
         
         for (String botName : BotManager.getAllBots()) {

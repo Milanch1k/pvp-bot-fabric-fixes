@@ -67,6 +67,7 @@ public class BotSettings {
     private boolean autoEatEnabled = true;        // Авто-еда
     private boolean autoShieldEnabled = true;     // Авто-щит
     private boolean shieldBreakEnabled = true;    // Сбивать щит топором
+    private boolean preferSword = true;           // Предпочитать меч вместо топора
     private int minHungerToEat = 14;              // Минимальный голод для еды
     private boolean autoPotionEnabled = true;     // Авто-зелья исцеления
     private boolean cobwebEnabled = true;         // Использовать паутину
@@ -86,6 +87,7 @@ public class BotSettings {
     private int missChance = 10;                  // Шанс промаха (0-100%)
     private int mistakeChance = 5;                // Шанс ошибки (0-100%)
     private int reactionDelay = 0;                // Задержка реакции в тиках (0-20)
+    private boolean botsRelogs = true;            // Боты респавнятся после рестарта сервера
     
     private BotSettings() {}
     
@@ -172,6 +174,7 @@ public class BotSettings {
     public boolean isAutoEatEnabled() { return autoEatEnabled; }
     public boolean isAutoShieldEnabled() { return autoShieldEnabled; }
     public boolean isShieldBreakEnabled() { return shieldBreakEnabled; }
+    public boolean isPreferSword() { return preferSword; }
     public int getMinHungerToEat() { return minHungerToEat; }
     public boolean isAutoPotionEnabled() { return autoPotionEnabled; }
     public boolean isCobwebEnabled() { return cobwebEnabled; }
@@ -191,6 +194,7 @@ public class BotSettings {
     public int getMissChance() { return missChance; }
     public int getMistakeChance() { return mistakeChance; }
     public int getReactionDelay() { return reactionDelay; }
+    public boolean isBotsRelogs() { return botsRelogs; }
     
     // Setters (с автосохранением)
     public void setAutoEquipArmor(boolean value) { 
@@ -292,6 +296,7 @@ public class BotSettings {
     public void setAutoEatEnabled(boolean value) { this.autoEatEnabled = value; save(); }
     public void setAutoShieldEnabled(boolean value) { this.autoShieldEnabled = value; save(); }
     public void setShieldBreakEnabled(boolean value) { this.shieldBreakEnabled = value; save(); }
+    public void setPreferSword(boolean value) { this.preferSword = value; save(); }
     public void setMinHungerToEat(int value) { 
         this.minHungerToEat = Math.max(1, Math.min(20, value)); 
         save(); 
@@ -335,4 +340,5 @@ public class BotSettings {
         this.reactionDelay = Math.max(0, Math.min(20, value)); 
         save(); 
     }
+    public void setBotsRelogs(boolean value) { this.botsRelogs = value; save(); }
 }
