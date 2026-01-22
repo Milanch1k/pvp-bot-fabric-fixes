@@ -462,6 +462,12 @@ public class BotCombat {
         
         // Атака
         if (distance <= meleeRange && state.attackCooldown <= 0) {
+            // Проверяем кулдаун атаки игрока (важно для 1.9+ боя)
+            if (bot.getAttackCooldownProgress(0.5f) < 1.0f) {
+                // Оружие ещё не готово к атаке - ждём
+                return;
+            }
+            
             // Проверяем нужно ли сбить щит
             if (settings.isShieldBreakEnabled() && target instanceof PlayerEntity player && player.isBlocking()) {
                 // Переключаемся на топор для сбития щита
@@ -496,14 +502,22 @@ public class BotCombat {
                 ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
             }
             
-            // Критический удар - прыжок перед ударом
-            if (settings.isCriticalsEnabled() && bot.isOnGround()) {
-                bot.jump();
+            // Критический удар - прыжок перед ударом, но атакуем только когда падаем
+            if (settings.isCriticalsEnabled()) {
+                if (bot.isOnGround()) {
+                    // Прыгаем для крита
+                    bot.jump();
+                    return; // Не атакуем сразу, ждём пока начнём падать
+                } else if (bot.getVelocity().y < 0) {
+                    // Падаем - делаем критический удар
+                    attackWithCarpet(bot, target, server);
+                    state.attackCooldown = settings.getAttackCooldown();
+                }
+            } else {
+                // Критические удары выключены - атакуем сразу
+                attackWithCarpet(bot, target, server);
+                state.attackCooldown = settings.getAttackCooldown();
             }
-            
-            // Атакуем через Carpet для надёжности
-            attackWithCarpet(bot, target, server);
-            state.attackCooldown = settings.getAttackCooldown();
         } else {
             // Не атакуем - просто держим оружие в руке
             int weaponSlot = findMeleeWeapon(inventory);

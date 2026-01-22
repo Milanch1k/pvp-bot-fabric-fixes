@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.CommandSource;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -17,10 +18,15 @@ import org.stepan1411.pvp_bot.bot.BotKits;
 import org.stepan1411.pvp_bot.bot.BotManager;
 import org.stepan1411.pvp_bot.bot.BotNameGenerator;
 import org.stepan1411.pvp_bot.bot.BotSettings;
+import org.stepan1411.pvp_bot.gui.SettingsGui;
 
+import java.lang.reflect.Method;
 import java.util.stream.Collectors;
 
 public class BotCommand {
+    
+    // Проверка наличия InvView
+    private static final boolean HAS_INVVIEW = FabricLoader.getInstance().isModLoaded("invview");
     
     // Подсказки для имён ботов
     private static final SuggestionProvider<ServerCommandSource> BOT_SUGGESTIONS = (ctx, builder) -> 
@@ -87,9 +93,19 @@ public class BotCommand {
                     .executes(ctx -> syncBots(ctx.getSource()))
                 )
                 
+                // /pvpbot menu - открыть тестовое меню
+                .then(CommandManager.literal("menu")
+                    .executes(ctx -> openTestMenu(ctx.getSource()))
+                )
+                
                 // /pvpbot settings
                 .then(CommandManager.literal("settings")
                     .executes(ctx -> showSettings(ctx.getSource()))
+                    
+                    // /pvpbot settings gui - открыть GUI настроек
+                    .then(CommandManager.literal("gui")
+                        .executes(ctx -> openSettingsGui(ctx.getSource()))
+                    )
                     
                     // /pvpbot settings autoarmor [true/false]
                     .then(CommandManager.literal("autoarmor")
@@ -813,6 +829,24 @@ public class BotCommand {
         return added;
     }
 
+    private static int openSettingsGui(ServerCommandSource source) {
+        try {
+            ServerPlayerEntity player = source.getPlayer();
+            if (player == null) {
+                source.sendError(Text.literal("This command must be run by a player!"));
+                return 0;
+            }
+            
+            SettingsGui gui = new SettingsGui(player);
+            gui.open();
+            return 1;
+        } catch (Exception e) {
+            source.sendError(Text.literal("Failed to open settings GUI: " + e.getMessage()));
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
     private static int showSettings(ServerCommandSource source) {
         BotSettings s = BotSettings.get();
         source.sendFeedback(() -> Text.literal("=== Equipment Settings ==="), false);
@@ -1006,34 +1040,63 @@ public class BotCommand {
             return 0;
         }
         
-        var inventory = bot.getInventory();
-        source.sendFeedback(() -> Text.literal("=== Inventory of " + botName + " ==="), false);
-        
-        // Хотбар (0-8)
-        StringBuilder hotbar = new StringBuilder("Hotbar: ");
-        for (int i = 0; i < 9; i++) {
-            var stack = inventory.getStack(i);
-            if (!stack.isEmpty()) {
-                hotbar.append("[").append(i).append("]").append(stack.getCount()).append("x").append(stack.getName().getString()).append(" ");
+        // Если InvView установлен - используем его GUI
+        if (HAS_INVVIEW) {
+            try {
+                return openInvViewGui(source, bot);
+            } catch (Exception e) {
+                source.sendError(Text.literal("Failed to open InvView GUI: " + e.getMessage()));
+                return 0;
             }
         }
-        source.sendFeedback(() -> Text.literal(hotbar.toString()), false);
         
-        // Броня
-        StringBuilder armor = new StringBuilder("Armor: ");
-        for (int i = 36; i < 40; i++) {
-            var stack = inventory.getStack(i);
-            if (!stack.isEmpty()) {
-                armor.append(stack.getName().getString()).append(" ");
-            }
+        // Если InvView не установлен - показываем сообщение
+        source.sendError(Text.literal("InvView mod is not installed!"));
+        source.sendFeedback(() -> Text.literal("Please install InvView to view bot inventories: https://modrinth.com/mod/invview"), false);
+        return 0;
+    }
+    
+    /**
+     * Открывает GUI InvView через рефлексию (чтобы не было жесткой зависимости)
+     */
+    private static int openInvViewGui(ServerCommandSource source, ServerPlayerEntity targetPlayer) throws Exception {
+        ServerPlayerEntity viewer = source.getPlayer();
+        if (viewer == null) {
+            source.sendError(Text.literal("This command must be run by a player!"));
+            return 0;
         }
-        source.sendFeedback(() -> Text.literal(armor.toString()), false);
         
-        // Offhand
-        var offhand = inventory.getStack(40);
-        if (!offhand.isEmpty()) {
-            source.sendFeedback(() -> Text.literal("Offhand: " + offhand.getCount() + "x" + offhand.getName().getString()), false);
+        // Используем рефлексию только для классов InvView
+        Class<?> simpleGuiClass = Class.forName("eu.pb4.sgui.api.gui.SimpleGui");
+        Class<?> savingGuiClass = Class.forName("us.potatoboy.invview.gui.SavingPlayerDataGui");
+        
+        // Получаем ScreenHandlerType.GENERIC_9X5 напрямую
+        Object screenHandlerType = net.minecraft.screen.ScreenHandlerType.GENERIC_9X5;
+        
+        // new SavingPlayerDataGui(ScreenHandlerType.GENERIC_9X5, viewer, targetPlayer)
+        Object gui = savingGuiClass.getConstructor(
+                net.minecraft.screen.ScreenHandlerType.class, 
+                ServerPlayerEntity.class, 
+                ServerPlayerEntity.class)
+                .newInstance(screenHandlerType, viewer, targetPlayer);
+        
+        // gui.setTitle(targetPlayer.getName())
+        Method setTitleMethod = simpleGuiClass.getMethod("setTitle", Text.class);
+        setTitleMethod.invoke(gui, targetPlayer.getName());
+        
+        // Добавляем слоты инвентаря (с возможностью редактирования)
+        Method setSlotRedirectMethod = simpleGuiClass.getMethod("setSlotRedirect", int.class, net.minecraft.screen.slot.Slot.class);
+        var inventory = targetPlayer.getInventory();
+        
+        for (int i = 0; i < inventory.size(); i++) {
+            // new Slot(inventory, i, 0, 0) - обычный слот с возможностью редактирования
+            net.minecraft.screen.slot.Slot slot = new net.minecraft.screen.slot.Slot(inventory, i, 0, 0);
+            setSlotRedirectMethod.invoke(gui, i, slot);
         }
+        
+        // gui.open()
+        Method openMethod = simpleGuiClass.getMethod("open");
+        openMethod.invoke(gui);
         
         return 1;
     }
@@ -1183,6 +1246,27 @@ public class BotCommand {
         
         final int given = count;
         source.sendFeedback(() -> Text.literal("Gave kit '" + kitName + "' to " + given + " bots in faction '" + factionName + "'"), true);
-        return count;
+        return 1;
+    }
+    
+    /**
+     * Открывает тестовое меню с примерами sgui
+     */
+    private static int openTestMenu(ServerCommandSource source) {
+        try {
+            ServerPlayerEntity player = source.getPlayer();
+            if (player == null) {
+                source.sendError(Text.literal("This command must be run by a player!"));
+                return 0;
+            }
+            
+            // Открываем главное меню
+            org.stepan1411.pvp_bot.gui.BotMenuGui.openMainMenu(player);
+            return 1;
+        } catch (Exception e) {
+            source.sendError(Text.literal("Failed to open menu: " + e.getMessage()));
+            e.printStackTrace();
+            return 0;
+        }
     }
 }

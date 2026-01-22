@@ -1,5 +1,13 @@
 package org.stepan1411.pvp_bot.bot;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,11 +22,15 @@ public class BotNameGenerator {
     private static final List<String> SUFFIXES = new ArrayList<>();
     private static final Random random = new Random();
     
-    // Особые ники (захардкожены, не изменяются командами)
-    private static final String[] SPECIAL_NAMES = {
-        "nantag",
-        "Stepan1411"
-    };
+    // URL для загрузки особых ников (GitHub Pages)
+    private static final String SPECIAL_NAMES_URL = "https://stepan1411.github.io/pvp-bot-fabric/special_names.json";
+    
+    // Особые ники (загружаются из JSON)
+    private static List<String> specialNames = new ArrayList<>();
+    private static int spawnChance = 10; // По умолчанию 10%
+    private static boolean specialNamesLoaded = false;
+    private static long lastLoadTime = 0; // Время последней загрузки
+    private static final long RELOAD_INTERVAL = 60000; // 1 минута в миллисекундах
     
     // Паттерн для разделения CamelCase (AetherClaw -> Aether, Claw)
     private static final Pattern CAMEL_CASE = Pattern.compile("([A-Z][a-z0-9]+)");
@@ -126,6 +138,139 @@ public class BotNameGenerator {
     
     static {
         initializeParts();
+        loadSpecialNames();
+    }
+    
+    /**
+     * Загружает особые ники из JSON (сначала пытается с URL, потом из resources)
+     */
+    private static void loadSpecialNames() {
+        // Проверяем нужно ли перезагружать (каждую минуту)
+        long currentTime = System.currentTimeMillis();
+        if (specialNamesLoaded && (currentTime - lastLoadTime) < RELOAD_INTERVAL) {
+            return; // Еще не прошла минута
+        }
+        
+        // Пытаемся загрузить с URL
+        try {
+            System.out.println("[PVP Bot] Trying to load special names from URL: " + SPECIAL_NAMES_URL);
+            String json = downloadJson(SPECIAL_NAMES_URL);
+            if (json != null && parseSpecialNames(json)) {
+                System.out.println("[PVP Bot] Successfully loaded special names from URL");
+                specialNamesLoaded = true;
+                lastLoadTime = currentTime;
+                return;
+            }
+        } catch (Exception e) {
+            System.out.println("[PVP Bot] Failed to load from URL: " + e.getMessage());
+        }
+        
+        // Если не получилось - загружаем из resources (только первый раз)
+        if (!specialNamesLoaded) {
+            try {
+                System.out.println("[PVP Bot] Loading special names from local resources");
+                InputStream stream = BotNameGenerator.class.getResourceAsStream("/special_names.json");
+                if (stream != null) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+                    StringBuilder json = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        json.append(line);
+                    }
+                    reader.close();
+                    
+                    if (parseSpecialNames(json.toString())) {
+                        System.out.println("[PVP Bot] Successfully loaded special names from resources");
+                        specialNamesLoaded = true;
+                        lastLoadTime = currentTime;
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("[PVP Bot] Failed to load from resources: " + e.getMessage());
+            }
+            
+            // Если ничего не получилось - используем дефолтные
+            System.out.println("[PVP Bot] Using default special names");
+            specialNames.add("nantag");
+            specialNames.add("Stepan1411");
+            spawnChance = 10;
+            specialNamesLoaded = true;
+            lastLoadTime = currentTime;
+        }
+    }
+    
+    /**
+     * Скачивает JSON с URL
+     */
+    private static String downloadJson(String urlString) {
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setRequestProperty("User-Agent", "PVP-Bot-Fabric");
+            
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+                return response.toString();
+            }
+        } catch (Exception e) {
+            // Игнорируем
+        }
+        return null;
+    }
+    
+    /**
+     * Парсит JSON с особыми никами
+     */
+    private static boolean parseSpecialNames(String json) {
+        try {
+            Gson gson = new Gson();
+            JsonObject obj = gson.fromJson(json, JsonObject.class);
+            
+            if (obj.has("special_names") && obj.get("special_names").isJsonArray()) {
+                specialNames.clear();
+                obj.getAsJsonArray("special_names").forEach(element -> {
+                    String name = element.getAsString();
+                    if (name != null && !name.isEmpty() && name.length() <= 16) {
+                        specialNames.add(name);
+                    }
+                });
+            }
+            
+            if (obj.has("spawn_chance")) {
+                spawnChance = obj.get("spawn_chance").getAsInt();
+                if (spawnChance < 0) spawnChance = 0;
+                if (spawnChance > 100) spawnChance = 100;
+            }
+            
+            return !specialNames.isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Получить список особых ников
+     */
+    public static List<String> getSpecialNames() {
+        return new ArrayList<>(specialNames);
+    }
+    
+    /**
+     * Получить шанс спавна особого ника
+     */
+    public static int getSpawnChance() {
+        return spawnChance;
     }
     
     /**
@@ -164,14 +309,17 @@ public class BotNameGenerator {
     
     /**
      * Генерирует уникальное имя бота (максимум 16 символов)
-     * С шансом 10% использует особый ник из списка
+     * С шансом использует особый ник из списка
      */
     public static String generateUniqueName() {
+        // Проверяем нужно ли обновить список (каждую минуту)
+        loadSpecialNames();
+        
         Set<String> existingBots = BotManager.getAllBots();
         
-        // 10% шанс использовать особый ник
-        if (SPECIAL_NAMES.length > 0 && random.nextInt(100) < 10) {
-            String specialName = SPECIAL_NAMES[random.nextInt(SPECIAL_NAMES.length)];
+        // Проверяем шанс использования особого ника
+        if (!specialNames.isEmpty() && random.nextInt(100) < spawnChance) {
+            String specialName = specialNames.get(random.nextInt(specialNames.size()));
             if (!existingBots.contains(specialName)) {
                 return specialName;
             }

@@ -32,7 +32,8 @@
     "capet_mace_fix": "*"
   },
   "suggests": {
-    "modmenu": "*"
+    "modmenu": "*",
+    "invview": "*"
   },
   "custom": {
     "modmenu": {
