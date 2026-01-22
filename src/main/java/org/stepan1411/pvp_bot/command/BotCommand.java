@@ -412,6 +412,42 @@ public class BotCommand {
                             })
                         )
                     )
+                    
+                    // /pvpbot settings autoshield [true/false]
+                    .then(CommandManager.literal("autoshield")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("autoshield: " + BotSettings.get().isAutoShieldEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setAutoShieldEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Auto shield: " + BotSettings.get().isAutoShieldEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    
+                    // /pvpbot settings autopotion [true/false]
+                    .then(CommandManager.literal("autopotion")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("autopotion: " + BotSettings.get().isAutoPotionEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setAutoPotionEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Auto potion: " + BotSettings.get().isAutoPotionEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    
+                    // /pvpbot settings autototem [true/false]
+                    .then(CommandManager.literal("autototem")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("autototem: " + BotSettings.get().isAutoTotemEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setAutoTotemEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Auto totem: " + BotSettings.get().isAutoTotemEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
                 )
                 
                 // /pvpbot attack <botname> <target> - с подсказками
@@ -801,6 +837,14 @@ public class BotCommand {
         source.sendFeedback(() -> Text.literal("attackcooldown: " + s.getAttackCooldown() + " ticks"), false);
         source.sendFeedback(() -> Text.literal("meleerange: " + s.getMeleeRange()), false);
         source.sendFeedback(() -> Text.literal("movespeed: " + s.getMoveSpeed()), false);
+        
+        source.sendFeedback(() -> Text.literal("=== Utilities ==="), false);
+        source.sendFeedback(() -> Text.literal("autototem: " + s.isAutoTotemEnabled()), false);
+        source.sendFeedback(() -> Text.literal("autoshield: " + s.isAutoShieldEnabled()), false);
+        source.sendFeedback(() -> Text.literal("autopotion: " + s.isAutoPotionEnabled()), false);
+        source.sendFeedback(() -> Text.literal("shieldbreak: " + s.isShieldBreakEnabled()), false);
+        source.sendFeedback(() -> Text.literal("prefersword: " + s.isPreferSword()), false);
+        
         source.sendFeedback(() -> Text.literal("=== Navigation Settings ==="), false);
         source.sendFeedback(() -> Text.literal("bhop: " + s.isBhopEnabled()), false);
         source.sendFeedback(() -> Text.literal("bhopcooldown: " + s.getBhopCooldown() + " ticks"), false);

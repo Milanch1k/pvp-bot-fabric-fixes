@@ -34,7 +34,7 @@ All PVP Bot commands start with `/pvpbot`. Requires permission level 2 (operator
 # Create a bot named "Guard1"
 /pvpbot spawn Guard1
 
-# Spawn 10 bots with random names
+# Spawn 10 bots with random names (10% chance for special names)
 /pvpbot massspawn 10
 
 # Remove the bot
@@ -43,6 +43,8 @@ All PVP Bot commands start with `/pvpbot`. Requires permission level 2 (operator
 # See all bots
 /pvpbot list
 ```
+
+**Note:** When spawning bots with random names, there's a 10% chance they will get a special name (`nantag` or `Stepan1411`) instead of a generated name.
 
 ---
 

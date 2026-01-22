@@ -14,6 +14,12 @@ public class BotNameGenerator {
     private static final List<String> SUFFIXES = new ArrayList<>();
     private static final Random random = new Random();
     
+    // Особые ники (захардкожены, не изменяются командами)
+    private static final String[] SPECIAL_NAMES = {
+        "nantag",
+        "Stepan1411"
+    };
+    
     // Паттерн для разделения CamelCase (AetherClaw -> Aether, Claw)
     private static final Pattern CAMEL_CASE = Pattern.compile("([A-Z][a-z0-9]+)");
     
@@ -158,9 +164,18 @@ public class BotNameGenerator {
     
     /**
      * Генерирует уникальное имя бота (максимум 16 символов)
+     * С шансом 10% использует особый ник из списка
      */
     public static String generateUniqueName() {
         Set<String> existingBots = BotManager.getAllBots();
+        
+        // 10% шанс использовать особый ник
+        if (SPECIAL_NAMES.length > 0 && random.nextInt(100) < 10) {
+            String specialName = SPECIAL_NAMES[random.nextInt(SPECIAL_NAMES.length)];
+            if (!existingBots.contains(specialName)) {
+                return specialName;
+            }
+        }
         
         for (int attempt = 0; attempt < 100; attempt++) {
             String name = generateName();

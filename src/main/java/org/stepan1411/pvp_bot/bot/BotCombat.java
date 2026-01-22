@@ -977,11 +977,23 @@ public class BotCombat {
         if (baseDamage == 0) return 0;
         
         // Если предпочитаем меч - даём мечам бонус
-        if (preferSword && item instanceof SwordItem) {
+        if (preferSword && isSword(item)) {
             return baseDamage + 5; // Меч всегда будет выбран если есть
         }
         
         return baseDamage;
+    }
+    
+    /**
+     * Проверяет, является ли предмет мечом
+     */
+    private static boolean isSword(Item item) {
+        return item == Items.NETHERITE_SWORD || 
+               item == Items.DIAMOND_SWORD || 
+               item == Items.IRON_SWORD || 
+               item == Items.GOLDEN_SWORD || 
+               item == Items.STONE_SWORD || 
+               item == Items.WOODEN_SWORD;
     }
     
     private static double getMeleeDamage(Item item) {

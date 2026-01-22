@@ -78,6 +78,8 @@ All buff potions are thrown at once when combat starts or when effects expire.
 |---------|------|-------|---------|-------------|
 | `autoarmor` | bool | - | true | Auto-equip best armor |
 | `autoweapon` | bool | - | true | Auto-equip best weapon |
+| `autototem` | bool | - | true | Auto-equip totem in offhand |
+| `autoshield` | bool | - | true | Auto-use shield when blocking |
 | `prefersword` | bool | - | true | Prefer sword over axe |
 | `shieldbreak` | bool | - | true | Switch to axe to break enemy shield |
 | `droparmor` | bool | - | false | Drop worse armor pieces |
