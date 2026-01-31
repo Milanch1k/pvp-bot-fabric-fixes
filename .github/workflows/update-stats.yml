@@ -1,0 +1,42 @@
+name: Update Statistics
+
+on:
+  # Запускается по расписанию (каждый час)
+  schedule:
+    - cron: '0 * * * *'
+  
+  # Можно запустить вручную
+  workflow_dispatch:
+  
+  # Запускается при webhook от серверов
+  repository_dispatch:
+    types: [update-stats]
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Update stats.json
+        run: |
+          # Здесь будет логика обновления статистики
+          # Пока просто обновляем timestamp
+          
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Обновляем last_update в stats.json
+          jq --arg timestamp "$TIMESTAMP" '.last_update = $timestamp' docs/data/stats.json > temp.json
+          mv temp.json docs/data/stats.json
+          
+          echo "Stats updated at $TIMESTAMP"
+      
+      - name: Commit changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/data/stats.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update statistics [skip ci]"
+          git push
