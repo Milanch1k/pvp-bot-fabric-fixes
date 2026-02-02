@@ -60,7 +60,8 @@ public class BotCombat {
             RANGED,     // Дальний бой (лук/арбалет)
             MACE,       // Булава (прыжок + удар)
             SPEAR,      // Копьё (charge + jab) - 1.21.11
-            CRYSTAL     // Crystal PVP (обсидиан + кристалл + удар)
+            CRYSTAL,    // Crystal PVP (обсидиан + кристалл + удар)
+            ANCHOR      // Anchor PVP (якорь + glowstone + взрыв)
         }
     }
     
@@ -235,6 +236,7 @@ public class BotCombat {
             case MACE -> settings.getMaceRange() * 2;
             case SPEAR -> settings.getSpearChargeRange();
             case CRYSTAL -> 10.0; // Crystal PVP эффективен до 10 блоков
+            case ANCHOR -> 8.0;   // Anchor PVP эффективен до 8 блоков
         };
         
         if (distance > maxRange) {
@@ -254,6 +256,15 @@ public class BotCombat {
                 boolean handled = BotCrystalPvp.doCrystalPvp(bot, target, settings, server);
                 if (!handled) {
                     // Если Crystal PVP не может работать - переключаемся на ближний бой
+                    state.currentMode = CombatState.WeaponMode.MELEE;
+                    handleMeleeCombat(bot, target, state, distance, settings, server);
+                }
+            }
+            case ANCHOR -> {
+                // Используем отдельный класс для Anchor PVP с полным контролем
+                boolean handled = BotAnchorPvp.doAnchorPvp(bot, target, settings, server);
+                if (!handled) {
+                    // Если Anchor PVP не может работать - переключаемся на ближний бой
                     state.currentMode = CombatState.WeaponMode.MELEE;
                     handleMeleeCombat(bot, target, state, distance, settings, server);
                 }
@@ -475,6 +486,9 @@ public class BotCombat {
         // Приоритет 1: Crystal PVP (если доступен)
         if (target != null && BotCrystalPvp.canUseCrystalPvp(bot, target, settings)) {
             state.currentMode = CombatState.WeaponMode.CRYSTAL;
+        } else if (target != null && BotAnchorPvp.canUseAnchorPvp(bot, target, settings)) {
+            // Приоритет 2: Anchor PVP (если кристаллы недоступны или враг слишком близко)
+            state.currentMode = CombatState.WeaponMode.ANCHOR;
         } else if (hasMace && distance <= maceRange && settings.isMaceEnabled()) {
             // Булава - если враг близко и можно прыгнуть
             state.currentMode = CombatState.WeaponMode.MACE;
