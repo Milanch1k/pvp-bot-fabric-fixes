@@ -16,6 +16,16 @@ from threading import Thread, Lock
 import atexit
 from collections import deque
 
+# Загружаем переменные окружения из .env файла (если есть)
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent / '.env'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+        print(f"[STARTUP] Loaded environment from {env_path}")
+except ImportError:
+    print("[STARTUP] python-dotenv not installed, using system environment variables")
+
 app = Flask(__name__)
 CORS(app)
 
@@ -29,10 +39,16 @@ def log(message):
     print(log_line)
     log_buffer.append(log_line)
 
-# GitHub настройки
-GITHUB_REPO = "https://github.com/Stepan1411/pvpbot-stats-data.git"
+# GitHub настройки из переменных окружения
+GITHUB_REPO = os.environ.get('GITHUB_REPO', 'https://github.com/Stepan1411/pvpbot-stats-data.git')
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')  # Personal Access Token
-GITHUB_BRANCH = "main"
+GITHUB_BRANCH = os.environ.get('GITHUB_BRANCH', 'main')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')  # Пароль админки
+
+log(f"[CONFIG] GitHub Repo: {GITHUB_REPO}")
+log(f"[CONFIG] GitHub Branch: {GITHUB_BRANCH}")
+log(f"[CONFIG] GitHub Token: {'SET' if GITHUB_TOKEN else 'NOT SET'}")
+log(f"[CONFIG] Admin Password: {'SET' if ADMIN_PASSWORD else 'NOT SET'}")
 
 # Папка для данных - используем абсолютный путь
 DATA_DIR = Path(os.path.abspath('./data'))
@@ -131,6 +147,20 @@ def git_commit_and_push():
         subprocess.run(['git', '-C', str(DATA_DIR), 'config', 'user.name', 'PVPBOT Stats Bot'], 
                       capture_output=True, text=True, timeout=5)
         
+        # Проверяем текущую ветку
+        result = subprocess.run(['git', '-C', str(DATA_DIR), 'branch', '--show-current'], 
+                              capture_output=True, text=True, timeout=5)
+        current_branch = result.stdout.strip()
+        
+        if not current_branch:
+            # Нет текущей ветки, создаём main
+            log("[GIT] No current branch, creating main...")
+            subprocess.run(['git', '-C', str(DATA_DIR), 'checkout', '-b', 'main'], 
+                          capture_output=True, text=True, timeout=5)
+            current_branch = 'main'
+        
+        log(f"[GIT] Current branch: {current_branch}")
+        
         # Проверяем и настраиваем remote origin
         repo_url = GITHUB_REPO.replace('https://', f'https://{GITHUB_TOKEN}@') if GITHUB_TOKEN else GITHUB_REPO
         result = subprocess.run(['git', '-C', str(DATA_DIR), 'remote', 'get-url', 'origin'], 
@@ -167,6 +197,15 @@ def git_commit_and_push():
             else:
                 log(f"[GIT] ✗ {filename} MISSING!")
         
+        # Проверяем файлы истории серверов
+        server_history_files = list(DATA_DIR.glob('server_*.json'))
+        if server_history_files:
+            log(f"[GIT] Found {len(server_history_files)} server history files")
+            for hist_file in server_history_files[:5]:  # Показываем первые 5
+                log(f"[GIT] ✓ {hist_file.name} ({hist_file.stat().st_size} bytes)")
+        else:
+            log("[GIT] ⚠ No server history files found!")
+        
         # Добавляем все файлы
         subprocess.run(['git', '-C', str(DATA_DIR), 'add', '.'], 
                       capture_output=True, text=True, timeout=10)
@@ -181,12 +220,12 @@ def git_commit_and_push():
             log(f"[GIT] Commit failed: {result.stderr}")
             return False
         
-        # Пробуем пушить
-        result = subprocess.run(['git', '-C', str(DATA_DIR), 'push', 'origin', GITHUB_BRANCH], 
+        # Пробуем пушить (используем текущую ветку)
+        result = subprocess.run(['git', '-C', str(DATA_DIR), 'push', '-u', 'origin', current_branch], 
                               capture_output=True, text=True, timeout=30)
         
         if result.returncode == 0:
-            log(f"[GIT] Successfully pushed to GitHub")
+            log(f"[GIT] Successfully pushed to GitHub ({current_branch})")
             return True
         else:
             # Проверяем, не повреждён ли репозиторий
@@ -204,11 +243,11 @@ def git_commit_and_push():
                               capture_output=True, text=True, timeout=30)
                 
                 # Rebase с автоматическим разрешением конфликтов (наши изменения приоритетнее)
-                subprocess.run(['git', '-C', str(DATA_DIR), 'rebase', '-X', 'ours', f'origin/{GITHUB_BRANCH}'], 
+                subprocess.run(['git', '-C', str(DATA_DIR), 'rebase', '-X', 'ours', f'origin/{current_branch}'], 
                               capture_output=True, text=True, timeout=30)
                 
                 # Повторный push
-                result = subprocess.run(['git', '-C', str(DATA_DIR), 'push', 'origin', GITHUB_BRANCH], 
+                result = subprocess.run(['git', '-C', str(DATA_DIR), 'push', 'origin', current_branch], 
                                       capture_output=True, text=True, timeout=30)
                 
                 if result.returncode == 0:
@@ -239,9 +278,6 @@ def fix_corrupted_repo():
     log("[GIT] Please manually fix the repository or contact admin")
     log("[GIT] Data files are preserved in the data/ directory")
     return False
-
-# Пароль для админки
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 
 # Хранилище
 servers = {}
@@ -328,9 +364,14 @@ def load_server_history(server_id):
     """Загружает историю конкретного сервера"""
     try:
         history_file = get_server_history_file(server_id)
+        log(f"[HISTORY] Loading server history from {history_file}")
         if history_file.exists():
             with open(history_file, 'r') as f:
-                return json.load(f)
+                data = json.load(f)
+                log(f"[HISTORY] Loaded {len(data.get('timestamps', []))} points for server {server_id[:8]}...")
+                return data
+        else:
+            log(f"[HISTORY] No history file found for server {server_id[:8]}... at {history_file}")
     except Exception as e:
         log(f"[HISTORY] Failed to load server history for {server_id}: {e}")
     return {"timestamps": [], "bots": [], "players": []}
@@ -341,7 +382,7 @@ def save_server_history(server_id, history_data):
         history_file = get_server_history_file(server_id)
         with open(history_file, 'w') as f:
             json.dump(history_data, f, indent=2)
-        log(f"[DATA] Saved server history to {history_file.name} ({len(history_data['timestamps'])} points)")
+        log(f"[DATA] Saved server history to {history_file} ({len(history_data['timestamps'])} points)")
     except Exception as e:
         log(f"[HISTORY] Failed to save server history for {server_id}: {e}")
 
@@ -406,7 +447,14 @@ def add_to_server_history(server_id, bots_count, players_count):
     
     # Сохраняем
     save_server_history(server_id, history_data)
-    log(f"[HISTORY] Added server history point for {server_id[:8]}... - Bots: {bots_count}, Players: {players_count}, Total points: {len(history_data['timestamps'])}")
+    
+    # Проверяем что файл действительно создался
+    history_file = get_server_history_file(server_id)
+    if history_file.exists():
+        log(f"[HISTORY] ✓ Server history saved for {server_id[:8]}... - {len(history_data['timestamps'])} points, file size: {history_file.stat().st_size} bytes")
+    else:
+        log(f"[HISTORY] ✗ FAILED to save server history for {server_id[:8]}... - file does not exist!")
+
 
 def get_stats():
     """Возвращает текущую статистику"""
@@ -630,17 +678,40 @@ def get_server_history_endpoint(server_id):
     try:
         # Проверяем пароль
         auth_header = request.headers.get('Authorization')
-        if not auth_header or auth_header != f"Bearer {ADMIN_PASSWORD}":
-            return jsonify({"error": "Unauthorized"}), 401
+        log(f"[API] History request for {server_id[:8]}... - Auth header: {auth_header[:20] if auth_header else 'MISSING'}...")
+        
+        if not auth_header:
+            log(f"[API] No Authorization header provided")
+            return jsonify({"error": "Unauthorized - No auth header"}), 401
+            
+        if not auth_header.startswith('Bearer '):
+            log(f"[API] Invalid Authorization header format")
+            return jsonify({"error": "Unauthorized - Invalid format"}), 401
+            
+        token = auth_header.replace('Bearer ', '')
+        if token != ADMIN_PASSWORD:
+            log(f"[API] Invalid token provided (length: {len(token)})")
+            return jsonify({"error": "Unauthorized - Invalid token"}), 401
         
         if server_id not in servers:
+            log(f"[API] Server {server_id[:8]}... not found in servers dict")
             return jsonify({"error": "Server not found"}), 404
+        
+        # Проверяем существование файла
+        history_file = get_server_history_file(server_id)
+        log(f"[API] Loading history for {server_id[:8]}... from {history_file}")
+        log(f"[API] File exists: {history_file.exists()}")
+        
+        if history_file.exists():
+            log(f"[API] File size: {history_file.stat().st_size} bytes")
         
         history_data = load_server_history(server_id)
         log(f"[API] Returning history for {server_id[:8]}... - {len(history_data.get('timestamps', []))} points")
         return jsonify(history_data), 200
     except Exception as e:
         log(f"[API] Error getting server history: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/admin/auth', methods=['POST'])
@@ -669,6 +740,15 @@ def test_admin():
             'size': filepath.stat().st_size if filepath.exists() else 0
         }
     
+    # Проверяем файлы истории серверов
+    server_history_files = list(DATA_DIR.glob('server_*.json'))
+    server_history_status = []
+    for hist_file in server_history_files:
+        server_history_status.append({
+            'name': hist_file.name,
+            'size': hist_file.stat().st_size
+        })
+    
     return jsonify({
         "message": "Admin route is working",
         "cwd": str(Path.cwd()),
@@ -678,6 +758,8 @@ def test_admin():
         "data_dir": str(DATA_DIR),
         "data_dir_exists": DATA_DIR.exists(),
         "files": files_status,
+        "server_history_files": server_history_status,
+        "server_history_count": len(server_history_files),
         "global_stats": global_stats,
         "servers_count": len(servers),
         "history_points": len(history['timestamps'])
@@ -788,6 +870,15 @@ def initialize():
         log(f"[STARTUP] Loaded {len(servers)} servers from local storage")
     except Exception as e:
         log(f"[STARTUP] Failed to load servers: {e}")
+    
+    # Проверяем DATA_DIR
+    log(f"[STARTUP] DATA_DIR: {DATA_DIR}")
+    log(f"[STARTUP] DATA_DIR exists: {DATA_DIR.exists()}")
+    log(f"[STARTUP] DATA_DIR is writable: {os.access(DATA_DIR, os.W_OK)}")
+    
+    # Проверяем существующие файлы истории серверов
+    server_history_files = list(DATA_DIR.glob('server_*.json'))
+    log(f"[STARTUP] Found {len(server_history_files)} server history files")
     
     try:
         load_history()
@@ -1149,7 +1240,7 @@ def admin_page():
                         <label for="password">Password</label>
                         <input type="password" id="password" placeholder="Enter admin password" required>
                     </div>
-                    <button type="button" class="btn" onclick="handleLogin(event)">Login</button>
+                    <button type="button" class="btn" id="loginButton">Login</button>
                     <div class="error-message" id="errorMessage">Invalid password</div>
                 </form>
             </div>
@@ -1209,9 +1300,33 @@ def admin_page():
                             <button class="time-filter-btn" onclick="changeTimeFilter('1d', 'bots')">1D</button>
                             <button class="time-filter-btn" onclick="changeTimeFilter('1w', 'bots')">1W</button>
                             <button class="time-filter-btn" onclick="changeTimeFilter('1m', 'bots')">1M</button>
+                            <button class="time-filter-btn" onclick="toggleCustomRange('bots')" style="background: #ff9800;">📅</button>
                         </div>
                         <div style="position: relative; height: 300px;">
                             <canvas id="botsChart"></canvas>
+                        </div>
+                        <div id="botsCustomRange" class="custom-range-picker" style="display: none; margin-top: 15px; padding: 20px; background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #eaeaea; font-size: 16px;">📅 Custom Time Range</h4>
+                                <button onclick="toggleCustomRange('bots')" style="background: transparent; border: none; color: #a0a0a0; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px;">×</button>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                                <button onclick="setQuickRange('bots', 3)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 3h</button>
+                                <button onclick="setQuickRange('bots', 6)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 6h</button>
+                                <button onclick="setQuickRange('bots', 12)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 12h</button>
+                                <button onclick="setQuickRange('bots', 48)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 2d</button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 13px; font-weight: 500;">📍 From:</label>
+                                    <input type="datetime-local" id="botsFromDate" style="width: 100%; padding: 10px; background: #16213e; border: 1px solid #2a4a6e; border-radius: 6px; color: #eaeaea; font-size: 14px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 13px; font-weight: 500;">📍 To:</label>
+                                    <input type="datetime-local" id="botsToDate" style="width: 100%; padding: 10px; background: #16213e; border: 1px solid #2a4a6e; border-radius: 6px; color: #eaeaea; font-size: 14px;">
+                                </div>
+                            </div>
+                            <button onclick="applyCustomRange('bots')" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; font-size: 14px; transition: transform 0.2s;">✓ Apply Range</button>
                         </div>
                     </div>
                     <div class="detail-card">
@@ -1222,9 +1337,33 @@ def admin_page():
                             <button class="time-filter-btn" onclick="changeTimeFilter('1d', 'players')">1D</button>
                             <button class="time-filter-btn" onclick="changeTimeFilter('1w', 'players')">1W</button>
                             <button class="time-filter-btn" onclick="changeTimeFilter('1m', 'players')">1M</button>
+                            <button class="time-filter-btn" onclick="toggleCustomRange('players')" style="background: #ff9800;">📅</button>
                         </div>
                         <div style="position: relative; height: 300px;">
                             <canvas id="playersChart"></canvas>
+                        </div>
+                        <div id="playersCustomRange" class="custom-range-picker" style="display: none; margin-top: 15px; padding: 20px; background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #eaeaea; font-size: 16px;">📅 Custom Time Range</h4>
+                                <button onclick="toggleCustomRange('players')" style="background: transparent; border: none; color: #a0a0a0; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px;">×</button>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                                <button onclick="setQuickRange('players', 3)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 3h</button>
+                                <button onclick="setQuickRange('players', 6)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 6h</button>
+                                <button onclick="setQuickRange('players', 12)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 12h</button>
+                                <button onclick="setQuickRange('players', 48)" style="flex: 1; min-width: 80px; padding: 8px; background: #1e3a5f; border: 1px solid #2a4a6e; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 12px;">Last 2d</button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 13px; font-weight: 500;">📍 From:</label>
+                                    <input type="datetime-local" id="playersFromDate" style="width: 100%; padding: 10px; background: #16213e; border: 1px solid #2a4a6e; border-radius: 6px; color: #eaeaea; font-size: 14px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 8px; color: #a0a0a0; font-size: 13px; font-weight: 500;">📍 To:</label>
+                                    <input type="datetime-local" id="playersToDate" style="width: 100%; padding: 10px; background: #16213e; border: 1px solid #2a4a6e; border-radius: 6px; color: #eaeaea; font-size: 14px;">
+                                </div>
+                            </div>
+                            <button onclick="applyCustomRange('players')" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; font-size: 14px; transition: transform 0.2s;">✓ Apply Range</button>
                         </div>
                     </div>
                 </div>
@@ -1331,7 +1470,40 @@ def admin_page():
         }
         
         window.addEventListener('DOMContentLoaded', function() {
-            if (authToken) showAdminPanel();
+            console.log('Admin panel loaded, authToken:', authToken ? 'exists' : 'missing');
+            if (authToken) {
+                // Проверяем что токен валидный
+                fetch(API_URL + '/api/admin/servers', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                })
+                .then(function(response) {
+                    if (response.status === 401) {
+                        console.log('Token invalid, clearing and showing login');
+                        localStorage.removeItem('adminToken');
+                        authToken = null;
+                    } else {
+                        showAdminPanel();
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error checking token:', error);
+                });
+            }
+            
+            // Обработчик кнопки логина
+            var loginButton = document.getElementById('loginButton');
+            if (loginButton) {
+                loginButton.addEventListener('click', handleLogin);
+            }
+            
+            // Обработчик формы логина (Enter)
+            var loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    handleLogin(e);
+                });
+            }
             
             document.getElementById('searchBox').addEventListener('input', function(e) {
                 var query = e.target.value.toLowerCase();
@@ -1489,7 +1661,7 @@ def admin_page():
             var spawned = parseInt(document.getElementById('editSpawned').value) || 0;
             var killed = parseInt(document.getElementById('editKilled').value) || 0;
             
-            if (!confirm('Update global stats to:\\nSpawned: ' + spawned + '\\nKilled: ' + killed)) return;
+            if (!confirm('Update global stats to: Spawned: ' + spawned + ', Killed: ' + killed)) return;
             
             fetch(API_URL + '/api/admin/stats', {
                 method: 'PUT',
@@ -1583,8 +1755,8 @@ def admin_page():
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 if (data.logs) {
-                    var logs = data.logs.join('\\n');
-                    alert('System Logs (last 100 lines):\\n\\n' + logs);
+                    var logs = data.logs.join(' | ');
+                    alert('System Logs (last 100 lines): ' + logs);
                 } else {
                     showActionResult('❌ Failed to load logs', 'error');
                 }
@@ -1595,7 +1767,7 @@ def admin_page():
         }
         
         function reinitGitRepo() {
-            if (!confirm('⚠️ WARNING: This will DELETE the .git directory and re-initialize it!\\n\\nYour data files will be preserved, but Git history will be reset.\\n\\nOnly do this if Git is completely broken!\\n\\nContinue?')) return;
+            if (!confirm('WARNING: This will DELETE the .git directory and re-initialize it! Your data files will be preserved, but Git history will be reset. Only do this if Git is completely broken! Continue?')) return;
             if (!confirm('Are you ABSOLUTELY sure? Type DELETE_GIT_REPO in the next prompt.')) return;
             
             var confirmation = prompt('Type DELETE_GIT_REPO to confirm:');
@@ -1644,9 +1816,19 @@ def admin_page():
                     for (var i = 0; i < data.backups.length; i++) {
                         var b = data.backups[i];
                         html += '<li>' + b.date + ' - ' + b.commit + 
-                            ' <button onclick="loadBackup(\'' + b.commit + '\')" style="margin-left: 10px; padding: 4px 8px; background: #667eea; border: none; border-radius: 4px; color: white; cursor: pointer;">Load</button></li>';
+                            ' <button class="load-backup-btn" data-commit="' + b.commit + '" style="margin-left: 10px; padding: 4px 8px; background: #667eea; border: none; border-radius: 4px; color: white; cursor: pointer;">Load</button></li>';
                     }
                     list.innerHTML = html;
+                    
+                    // Добавляем обработчики для кнопок
+                    var buttons = list.querySelectorAll('.load-backup-btn');
+                    for (var i = 0; i < buttons.length; i++) {
+                        buttons[i].addEventListener('click', function() {
+                            var commit = this.getAttribute('data-commit');
+                            loadBackup(commit);
+                        });
+                    }
+                    
                     container.style.display = 'block';
                 } else {
                     showActionResult('❌ ' + (data.error || 'Unknown error'), 'error');
@@ -1725,20 +1907,94 @@ def admin_page():
             }, 5000);
         }
         
+        function toggleCustomRange(chartType) {
+            var rangePicker = document.getElementById(chartType + 'CustomRange');
+            
+            if (rangePicker.style.display === 'none' || rangePicker.style.display === '') {
+                rangePicker.style.display = 'block';
+                // Устанавливаем значения по умолчанию (последние 24 часа)
+                var now = new Date();
+                var yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                document.getElementById(chartType + 'FromDate').value = formatDateTimeLocal(yesterday);
+                document.getElementById(chartType + 'ToDate').value = formatDateTimeLocal(now);
+            } else {
+                rangePicker.style.display = 'none';
+                // Возвращаемся к стандартному фильтру
+                if (currentTimeFilter === 'custom') {
+                    changeTimeFilter('30m', chartType);
+                }
+            }
+        }
+        
+        function setQuickRange(chartType, hours) {
+            var now = new Date();
+            var past = new Date(now.getTime() - hours * 60 * 60 * 1000);
+            document.getElementById(chartType + 'FromDate').value = formatDateTimeLocal(past);
+            document.getElementById(chartType + 'ToDate').value = formatDateTimeLocal(now);
+        }
+        
         function changeTimeFilter(filter, chartType) {
             currentTimeFilter = filter;
             
-            // Обновляем активную кнопку для всех графиков
-            const allButtons = document.querySelectorAll('.time-filter-btn');
-            allButtons.forEach(btn => {
-                if (btn.textContent === filter.toUpperCase()) {
+            // Обновляем активную кнопку
+            var allButtons = document.querySelectorAll('.time-filter-btn');
+            for (var i = 0; i < allButtons.length; i++) {
+                var btn = allButtons[i];
+                var btnText = btn.textContent.trim().replace('📅', '').trim();
+                if (btnText === filter.toUpperCase()) {
                     btn.classList.add('active');
                 } else {
                     btn.classList.remove('active');
                 }
-            });
+            }
             
             // Перерисовываем графики с новым фильтром
+            if (fullHistoryData) {
+                renderCharts(fullHistoryData);
+            }
+        }
+        
+        function formatDateTimeLocal(date) {
+            var year = date.getFullYear();
+            var month = String(date.getMonth() + 1).padStart(2, '0');
+            var day = String(date.getDate()).padStart(2, '0');
+            var hours = String(date.getHours()).padStart(2, '0');
+            var minutes = String(date.getMinutes()).padStart(2, '0');
+            return year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
+        }
+        
+        function applyCustomRange(chartType) {
+            var fromInput, toInput;
+            
+            if (chartType === 'bots') {
+                fromInput = document.getElementById('botsFromDate');
+                toInput = document.getElementById('botsToDate');
+            } else {
+                fromInput = document.getElementById('playersFromDate');
+                toInput = document.getElementById('playersToDate');
+            }
+            
+            var fromDate = new Date(fromInput.value);
+            var toDate = new Date(toInput.value);
+            
+            if (!fromInput.value || !toInput.value) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            if (fromDate >= toDate) {
+                alert('Start date must be before end date');
+                return;
+            }
+            
+            // Сохраняем custom range
+            currentTimeFilter = 'custom';
+            window.customTimeRange = {
+                from: fromDate.getTime() / 1000,
+                to: toDate.getTime() / 1000
+            };
+            
+            // Обновляем график
             if (fullHistoryData) {
                 renderCharts(fullHistoryData);
             }
@@ -1747,19 +2003,27 @@ def admin_page():
         function filterDataByTime(timestamps, data) {
             const now = Date.now() / 1000;
             let cutoffTime;
+            let endTime = now;
             
-            switch(currentTimeFilter) {
-                case '30m': cutoffTime = now - (30 * 60); break;
-                case '1h': cutoffTime = now - (60 * 60); break;
-                case '1d': cutoffTime = now - (24 * 60 * 60); break;
-                case '1w': cutoffTime = now - (7 * 24 * 60 * 60); break;
-                case '1m': cutoffTime = now - (30 * 24 * 60 * 60); break;
-                default: cutoffTime = now - (30 * 60);
+            // Проверяем кастомный диапазон
+            if (currentTimeFilter === 'custom' && window.customTimeRange) {
+                cutoffTime = window.customTimeRange.from;
+                endTime = window.customTimeRange.to;
+            } else {
+                // Стандартные фильтры
+                switch(currentTimeFilter) {
+                    case '30m': cutoffTime = now - (30 * 60); break;
+                    case '1h': cutoffTime = now - (60 * 60); break;
+                    case '1d': cutoffTime = now - (24 * 60 * 60); break;
+                    case '1w': cutoffTime = now - (7 * 24 * 60 * 60); break;
+                    case '1m': cutoffTime = now - (30 * 24 * 60 * 60); break;
+                    default: cutoffTime = now - (30 * 60);
+                }
             }
             
             const filtered = { timestamps: [], data: [] };
             for (let i = 0; i < timestamps.length; i++) {
-                if (timestamps[i] >= cutoffTime) {
+                if (timestamps[i] >= cutoffTime && timestamps[i] <= endTime) {
                     filtered.timestamps.push(timestamps[i]);
                     filtered.data.push(data[i]);
                 }
@@ -1832,15 +2096,21 @@ def admin_page():
                     '<li>First Seen: <strong>' + firstSeenDate + '</strong></li>' +
                     '<li>Last Seen: <strong>' + lastSeenDate + '</strong></li>';
                 
+                console.log('Fetching history with token:', authToken ? 'Token exists' : 'NO TOKEN!');
                 return fetch(API_URL + '/api/admin/server/' + serverId + '/history', {
                     headers: { 'Authorization': 'Bearer ' + authToken }
                 });
             })
             .then(function(historyResponse) {
+                console.log('History response status:', historyResponse.status);
                 if (historyResponse.ok) {
                     return historyResponse.json();
                 }
-                throw new Error('Failed to load history');
+                if (historyResponse.status === 401) {
+                    console.error('Unauthorized - token may be invalid');
+                    logout();
+                }
+                throw new Error('Failed to load history: ' + historyResponse.status);
             })
             .then(function(historyData) {
                 console.log('History data loaded:', historyData);
@@ -2125,7 +2395,7 @@ def admin_page():
                     var statusText = server.is_online ? 'ONLINE' : 'OFFLINE';
                     var idShort = server.id.substring(0, 8) + '...';
                     
-                    html += '<div class="server-item ' + onlineClass + '" onclick="showServerDetail(\'' + server.id + '\')">' +
+                    html += '<div class="server-item ' + onlineClass + '" data-server-id="' + server.id + '">' +
                         '<div class="server-header">' +
                         '<div><span class="server-id">' + idShort + '</span>' +
                         '<div class="server-id-full">' + server.id + '</div></div>' +
@@ -2143,6 +2413,15 @@ def admin_page():
                         '</div></div>';
                 }
                 serversList.innerHTML = html;
+                
+                // Добавляем обработчики кликов
+                var serverItems = serversList.querySelectorAll('.server-item');
+                for (var i = 0; i < serverItems.length; i++) {
+                    serverItems[i].addEventListener('click', function() {
+                        var serverId = this.getAttribute('data-server-id');
+                        showServerDetail(serverId);
+                    });
+                }
             }
         }
     </script>

@@ -55,6 +55,7 @@ public class BotSettings {
     private boolean rangedEnabled = true;         // Использовать лук/арбалет
     private boolean maceEnabled = true;           // Использовать булаву
     private boolean spearEnabled = false;         // Использовать копьё (1.21.11) - ВЫКЛЮЧЕНО из-за бага Carpet
+    private boolean crystalPvpEnabled = true;     // Использовать Crystal PVP (обсидиан + кристалл)
     
     // Настройки копья (Spear) - 1.21.11
     private double spearRange = 4.5;              // Дистанция для jab атаки
@@ -169,6 +170,7 @@ public class BotSettings {
     public boolean isRangedEnabled() { return rangedEnabled; }
     public boolean isMaceEnabled() { return maceEnabled; }
     public boolean isSpearEnabled() { return spearEnabled; }
+    public boolean isCrystalPvpEnabled() { return crystalPvpEnabled; }
     public double getSpearRange() { return spearRange; }
     public double getSpearChargeRange() { return spearChargeRange; }
     public int getSpearMinChargeTime() { return spearMinChargeTime; }
@@ -284,6 +286,7 @@ public class BotSettings {
     public void setRangedEnabled(boolean value) { this.rangedEnabled = value; save(); }
     public void setMaceEnabled(boolean value) { this.maceEnabled = value; save(); }
     public void setSpearEnabled(boolean value) { this.spearEnabled = value; save(); }
+    public void setCrystalPvpEnabled(boolean value) { this.crystalPvpEnabled = value; save(); }
     public void setSpearRange(double value) { 
         this.spearRange = Math.max(2.0, Math.min(8.0, value)); 
         save(); 

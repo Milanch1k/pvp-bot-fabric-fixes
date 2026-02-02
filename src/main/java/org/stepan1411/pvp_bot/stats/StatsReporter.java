@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class StatsReporter {
     
-    private static final String STATS_ENDPOINT = "https://pvpbot-stats--stepanksv141114.replit.app/api/stats";
+    private static final String STATS_ENDPOINT = "https://stepan1411.pythonanywhere.com/api/stats";
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static String serverId = null;
     private static boolean enabled = true;
