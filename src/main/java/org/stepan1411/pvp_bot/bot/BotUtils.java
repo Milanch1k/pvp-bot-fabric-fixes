@@ -28,6 +28,10 @@ public class BotUtils {
         public int buffPotionCooldown = 0; // Кулдаун на баффовые зелья
         public boolean isThrowingPotion = false; // Бросаем зелье - не смотреть на цель
         public int throwingPotionTicks = 0;
+        public boolean isMending = false; // Чинимся - не смотреть на цель, убегать
+        public int mendingCooldown = 0; // Кулдаун между бросками XP бутылок
+        public int xpBottlesThrown = 0; // Сколько бутылок уже бросили
+        public int xpBottlesNeeded = 0; // Сколько бутылок нужно бросить
         public java.util.List<Integer> potionsToThrow = new java.util.ArrayList<>(); // Очередь зелий для броска
     }
     
@@ -52,6 +56,7 @@ public class BotUtils {
         if (state.windChargeCooldown > 0) state.windChargeCooldown--;
         if (state.potionCooldown > 0) state.potionCooldown--;
         if (state.buffPotionCooldown > 0) state.buffPotionCooldown--;
+        if (state.mendingCooldown > 0) state.mendingCooldown--;
         
         // ПРИОРИТЕТ 1: Авто-ремонт брони (если нужно - отступаем и чинимся)
         if (settings.isAutoMendEnabled()) {
@@ -797,10 +802,17 @@ public class BotUtils {
         
         // Проверяем есть ли XP бутылки
         int xpBottleSlot = findXpBottle(inventory);
-        if (xpBottleSlot < 0) return false; // Нет XP бутылок
+        if (xpBottleSlot < 0) {
+            state.isMending = false;
+            state.xpBottlesThrown = 0;
+            state.xpBottlesNeeded = 0;
+            return false; // Нет XP бутылок
+        }
         
-        // Проверяем каждый слот брони
-        boolean needsRepair = false;
+        // Проверяем каждый слот брони и считаем сколько урона нужно починить
+        int totalDamageToRepair = 0;
+        int itemsNeedingRepair = 0;
+        
         for (int armorSlot = 36; armorSlot < 40; armorSlot++) {
             ItemStack armorPiece = inventory.getStack(armorSlot);
             if (armorPiece.isEmpty()) continue;
@@ -815,23 +827,54 @@ public class BotUtils {
             
             // Если прочность ниже порога - нужен ремонт
             if (durabilityPercent < settings.getMendDurabilityThreshold()) {
-                needsRepair = true;
-                break;
+                // Считаем сколько нужно починить до 90%
+                int targetDamage = (int) (maxDamage * 0.1); // 90% = 10% урона
+                int damageToRepair = currentDamage - targetDamage;
+                if (damageToRepair > 0) {
+                    totalDamageToRepair += damageToRepair;
+                    itemsNeedingRepair++;
+                }
             }
         }
         
-        if (!needsRepair) return false; // Броня в порядке
+        if (totalDamageToRepair <= 0) {
+            // Вся броня починена!
+            state.isMending = false;
+            state.xpBottlesThrown = 0;
+            state.xpBottlesNeeded = 0;
+            return false;
+        }
+        
+        // Если только начинаем чиниться - рассчитываем сколько бутылок нужно ОДИН РАЗ
+        if (!state.isMending) {
+            // Реальные данные: незеритовый нагрудник 0→95% = ~20 бутылок для ~562 урона
+            // Это значит ~28 урона на бутылку
+            // Формула: totalDamageToRepair / 28
+            state.xpBottlesNeeded = (totalDamageToRepair / 28) + 2; // +2 для запаса
+            if (state.xpBottlesNeeded < 5) state.xpBottlesNeeded = 5; // Минимум 5 бутылок
+            state.xpBottlesThrown = 0;
+        }
         
         // БРОНЯ СЛОМАНА - ОТСТУПАЕМ И ЧИНИМСЯ!
+        state.isMending = true;
         
         // Получаем цель из BotCombat
         var combatState = BotCombat.getState(bot.getName().getString());
         Entity target = combatState.target;
         
-        // Отступаем от врага если он есть
+        // Отступаем от врага если он есть (скорость 1.3 = быстро!)
         if (target != null) {
             BotNavigation.lookAway(bot, target);
-            BotNavigation.moveAway(bot, target, 1.5); // Максимальная скорость
+            BotNavigation.moveAway(bot, target, 1.3); // 1.3 = быстро с bhop!
+        }
+        
+        // Проверяем бросили ли уже достаточно бутылок
+        if (state.xpBottlesThrown >= state.xpBottlesNeeded) {
+            // Закончили бросать - выходим из режима починки
+            state.isMending = false;
+            state.xpBottlesThrown = 0;
+            state.xpBottlesNeeded = 0;
+            return false;
         }
         
         // Перемещаем XP бутылку в хотбар если нужно
@@ -849,8 +892,10 @@ public class BotUtils {
         // Смотрим максимально вниз
         bot.setPitch(90);
         
-        // СПАМИМ XP бутылки каждый тик!
+        // КИДАЕМ БУТЫЛКУ КАЖДЫЙ ТИК!
         executeCommand(server, bot, "player " + bot.getName().getString() + " use once");
+        
+        state.xpBottlesThrown++;
         
         return true; // Возвращаем true - бот чинится
     }

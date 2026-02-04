@@ -227,6 +227,11 @@ public class BotCombat {
         }
         state.isRetreating = false;
         
+        // Проверяем чинится ли бот - если да, не трогаем его
+        if (utilsState.isMending) {
+            return; // Бот чинится - не мешаем ему
+        }
+        
         // Выбираем режим боя
         selectWeaponMode(bot, state, distance, settings);
         
