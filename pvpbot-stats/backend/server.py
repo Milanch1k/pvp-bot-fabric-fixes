@@ -2,10 +2,13 @@
 """
 Backend для сбора статистики PVPBOT
 Хранение данных в локальных файлах + GitHub backup
+Optimized for Ubuntu Server with Cloudflare Zero Trust
 """
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import json
 import time
 import os
@@ -27,7 +30,18 @@ except ImportError:
     print("[STARTUP] python-dotenv not installed, using system environment variables")
 
 app = Flask(__name__)
-CORS(app)
+
+# CORS настройки для безопасности
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
+CORS(app, origins=ALLOWED_ORIGINS)
+
+# Rate limiting для защиты от DDoS
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=[os.environ.get('RATE_LIMIT', '100') + " per hour"],
+    storage_uri="memory://"
+)
 
 # Логи в памяти (последние 500 строк)
 log_buffer = deque(maxlen=500)

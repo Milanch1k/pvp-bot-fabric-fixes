@@ -53,7 +53,7 @@ public class BotAnchorPvp {
         if (dimension.contains("nether")) return false; // Don't use in Nether
         
         double distance = bot.distanceTo(target);
-        if (distance < 2.0 || distance > 6.0) return false;
+        if (distance < 2.0 || distance > 8.0) return false; // Increased max distance to 8.0
         
         // Check bot health - don't use anchor if low HP (suicide risk)
         double healthPercent = bot.getHealth() / bot.getMaxHealth();
@@ -96,7 +96,7 @@ public class BotAnchorPvp {
         }
         
         // If enemy too far - approach
-        if (distance > 6.0) {
+        if (distance > 8.0) {
             moveToward(bot, target, settings.getMoveSpeed());
             state.step = 0;
             state.lastAnchorPos = null;
@@ -214,7 +214,7 @@ public class BotAnchorPvp {
             
             state.lastAnchorPos = anchorPos;
             state.step = 1;
-            state.cooldownTicks = 5;
+            state.cooldownTicks = 3; // Reduced cooldown for faster action
             state.stuckCounter = 0;
             state.anchorPlaceAttempts = 0;
             
@@ -256,9 +256,9 @@ public class BotAnchorPvp {
         // Check anchor charge level
         int charges = blockAtPos.get(RespawnAnchorBlock.CHARGES);
         
-        if (charges >= 4) {
-            // Fully charged - go to detonation
-            System.out.println("[Anchor PVP] " + bot.getName().getString() + " anchor fully charged, moving to step 2");
+        if (charges >= 1) {
+            // Charged (even 1 charge is enough) - go to detonation
+            System.out.println("[Anchor PVP] " + bot.getName().getString() + " anchor charged (" + charges + "/4), moving to step 2");
             state.step = 2;
             state.cooldownTicks = 0;
             return true;
@@ -303,17 +303,11 @@ public class BotAnchorPvp {
                 server.getCommandSource()
             );
             
-            System.out.println("[Anchor PVP] " + bot.getName().getString() + " charging anchor (charges: " + charges + "/4)");
+            System.out.println("[Anchor PVP] " + bot.getName().getString() + " charged anchor once (charges: " + (charges + 1) + "/4)");
             
-            // If not fully charged yet - stay on step 1
-            if (charges < 3) {
-                state.step = 1;
-                state.cooldownTicks = 3; // Small cooldown between charges
-            } else {
-                // Next charge will be full - go to detonation
-                state.step = 2;
-                state.cooldownTicks = 5;
-            }
+            // One charge is enough - go to detonation immediately
+            state.step = 2;
+            state.cooldownTicks = 2; // Short cooldown before detonation
             state.stuckCounter = 0;
             
         } catch (Exception e) {
@@ -409,11 +403,17 @@ public class BotAnchorPvp {
         // Stop bot
         bot.setVelocity(0, bot.getVelocity().y, 0);
         
-        // Switch to any item (not glowstone!)
+        // Switch to anchor (more reliable - can place immediately after detonation)
         PlayerInventory inventory = bot.getInventory();
-        int weaponSlot = findMeleeWeapon(inventory);
-        if (weaponSlot >= 0) {
-            selectItem(bot, weaponSlot);
+        int anchorSlot = findRespawnAnchor(inventory);
+        if (anchorSlot >= 0) {
+            selectItem(bot, anchorSlot);
+        } else {
+            // Fallback to weapon if no anchor
+            int weaponSlot = findMeleeWeapon(inventory);
+            if (weaponSlot >= 0) {
+                selectItem(bot, weaponSlot);
+            }
         }
         
         // Look at anchor
@@ -431,7 +431,7 @@ public class BotAnchorPvp {
             // After detonation - reset and start new cycle
             state.step = 0;
             state.lastAnchorPos = null;
-            state.cooldownTicks = 10; // Longer cooldown after explosion
+            state.cooldownTicks = 5; // Reduced cooldown for faster spam
             state.stuckCounter = 0;
             
         } catch (Exception e) {

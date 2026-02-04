@@ -153,8 +153,8 @@ public class BotCombat {
         var utilsState = BotUtils.getState(bot.getName().getString());
         boolean isEating = utilsState.isEating;
         
-        if (isEating) {
-            // Бот ест - не переключаем слоты, но двигаемся от врага с обходом препятствий
+        if (isEating && settings.isRetreatEnabled()) {
+            // Бот ест И retreat включён - отступаем
             state.isRetreating = true;
             if (state.isDrawingBow) {
                 stopUsingBow(bot, state);
@@ -163,6 +163,12 @@ public class BotCombat {
             BotNavigation.lookAway(bot, target);
             BotNavigation.moveAway(bot, target, 1.2);
             return;
+        } else if (isEating) {
+            // Бот ест НО retreat выключен - просто не переключаем слоты, продолжаем драться
+            if (state.isDrawingBow) {
+                stopUsingBow(bot, state);
+            }
+            // Не отступаем, продолжаем бой
         }
         
         // Пробуем использовать зелье исцеления если низкое HP
@@ -236,7 +242,7 @@ public class BotCombat {
             case MACE -> settings.getMaceRange() * 2;
             case SPEAR -> settings.getSpearChargeRange();
             case CRYSTAL -> 10.0; // Crystal PVP эффективен до 10 блоков
-            case ANCHOR -> 8.0;   // Anchor PVP эффективен до 8 блоков
+            case ANCHOR -> 10.0;  // Anchor PVP эффективен до 10 блоков (increased)
         };
         
         if (distance > maxRange) {
@@ -483,11 +489,11 @@ public class BotCombat {
         double spearRange = settings.getSpearRange();
         
         // Логика выбора оружия
-        // Приоритет 1: Crystal PVP (если доступен)
+        // Приоритет 1: Crystal PVP (если доступен) - быстрее
         if (target != null && BotCrystalPvp.canUseCrystalPvp(bot, target, settings)) {
             state.currentMode = CombatState.WeaponMode.CRYSTAL;
         } else if (target != null && BotAnchorPvp.canUseAnchorPvp(bot, target, settings)) {
-            // Приоритет 2: Anchor PVP (если кристаллы недоступны или враг слишком близко)
+            // Приоритет 2: Anchor PVP (если кристаллы недоступны) - больше урона но медленнее
             state.currentMode = CombatState.WeaponMode.ANCHOR;
         } else if (hasMace && distance <= maceRange && settings.isMaceEnabled()) {
             // Булава - если враг близко и можно прыгнуть

@@ -68,6 +68,8 @@ public class BotSettings {
     private boolean autoTotemEnabled = true;      // Авто-тотем в offhand
     private boolean autoEatEnabled = true;        // Авто-еда
     private boolean autoShieldEnabled = true;     // Авто-щит
+    private boolean autoMendEnabled = true;       // Авто-ремонт брони с Mending через XP бутылки
+    private double mendDurabilityThreshold = 0.25; // Порог прочности для ремонта (0.25 = 25%)
     private double shieldHealthThreshold = 0.5;   // Порог HP для использования щита (0.5 = 50%)
     private boolean shieldBreakEnabled = true;    // Сбивать щит топором
     private boolean preferSword = true;           // Предпочитать меч вместо топора
@@ -76,7 +78,7 @@ public class BotSettings {
     private boolean cobwebEnabled = true;         // Использовать паутину
     
     // ============ Навигация и движение ============
-    private boolean retreatEnabled = true;        // Отступать при низком HP
+    private boolean retreatEnabled = false;       // Отступать при низком HP (ВЫКЛЮЧЕНО по умолчанию)
     private double retreatHealthPercent = 0.3;    // Процент HP для отступления (0.3 = 30%)
     private double criticalHealthPercent = 0.15;  // Критический HP для отступления даже со сбитым щитом (0.15 = 15%)
     private boolean bhopEnabled = true;           // Bunny hop (прыжки при беге)
@@ -182,6 +184,8 @@ public class BotSettings {
     public boolean isAutoTotemEnabled() { return autoTotemEnabled; }
     public boolean isAutoEatEnabled() { return autoEatEnabled; }
     public boolean isAutoShieldEnabled() { return autoShieldEnabled; }
+    public boolean isAutoMendEnabled() { return autoMendEnabled; }
+    public double getMendDurabilityThreshold() { return mendDurabilityThreshold; }
     public double getShieldHealthThreshold() { return shieldHealthThreshold; }
     public boolean isShieldBreakEnabled() { return shieldBreakEnabled; }
     public boolean isPreferSword() { return preferSword; }
@@ -311,6 +315,11 @@ public class BotSettings {
     public void setAutoTotemEnabled(boolean value) { this.autoTotemEnabled = value; save(); }
     public void setAutoEatEnabled(boolean value) { this.autoEatEnabled = value; save(); }
     public void setAutoShieldEnabled(boolean value) { this.autoShieldEnabled = value; save(); }
+    public void setAutoMendEnabled(boolean value) { this.autoMendEnabled = value; save(); }
+    public void setMendDurabilityThreshold(double value) { 
+        this.mendDurabilityThreshold = Math.max(0.1, Math.min(0.9, value)); 
+        save(); 
+    }
     public void setShieldHealthThreshold(double value) { 
         this.shieldHealthThreshold = Math.max(0.1, Math.min(1.0, value)); 
         save(); 

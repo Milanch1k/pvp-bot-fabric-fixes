@@ -53,6 +53,14 @@ public class BotUtils {
         if (state.potionCooldown > 0) state.potionCooldown--;
         if (state.buffPotionCooldown > 0) state.buffPotionCooldown--;
         
+        // ПРИОРИТЕТ 1: Авто-ремонт брони (если нужно - отступаем и чинимся)
+        if (settings.isAutoMendEnabled()) {
+            boolean needsMending = handleAutoMend(bot, state, settings, server);
+            if (needsMending) {
+                return; // Чинимся - не делаем ничего другого
+            }
+        }
+        
         // Обработка броска зелья - смотрим вниз и бросаем
         if (state.isThrowingPotion) {
             state.throwingPotionTicks++;
@@ -329,6 +337,18 @@ public class BotUtils {
      * Авто-еда с использованием команд Carpet
      */
     private static void handleAutoEat(ServerPlayerEntity bot, BotState state, BotSettings settings, MinecraftServer server) {
+        // Проверяем включена ли авто-еда
+        if (!settings.isAutoEatEnabled()) {
+            // Если авто-еда выключена, останавливаем еду если бот ест
+            if (state.isEating) {
+                bot.stopUsingItem();
+                state.isEating = false;
+                state.eatingTicks = 0;
+                state.eatingSlot = -1;
+            }
+            return;
+        }
+        
         int hunger = bot.getHungerManager().getFoodLevel();
         float health = bot.getHealth();
         float maxHealth = bot.getMaxHealth();
@@ -765,5 +785,102 @@ public class BotUtils {
         }
         
         return false;
+    }
+    
+    /**
+     * Авто-ремонт брони с Mending через XP бутылки
+     * Проверяет прочность брони и использует XP бутылки когда нужно
+     * Возвращает true если бот чинится (нужно отступать)
+     */
+    private static boolean handleAutoMend(ServerPlayerEntity bot, BotState state, BotSettings settings, MinecraftServer server) {
+        var inventory = bot.getInventory();
+        
+        // Проверяем есть ли XP бутылки
+        int xpBottleSlot = findXpBottle(inventory);
+        if (xpBottleSlot < 0) return false; // Нет XP бутылок
+        
+        // Проверяем каждый слот брони
+        boolean needsRepair = false;
+        for (int armorSlot = 36; armorSlot < 40; armorSlot++) {
+            ItemStack armorPiece = inventory.getStack(armorSlot);
+            if (armorPiece.isEmpty()) continue;
+            
+            // Проверяем есть ли Mending на броне
+            if (!hasMendingEnchantment(armorPiece)) continue;
+            
+            // Проверяем прочность
+            int maxDamage = armorPiece.getMaxDamage();
+            int currentDamage = armorPiece.getDamage();
+            double durabilityPercent = 1.0 - ((double) currentDamage / maxDamage);
+            
+            // Если прочность ниже порога - нужен ремонт
+            if (durabilityPercent < settings.getMendDurabilityThreshold()) {
+                needsRepair = true;
+                break;
+            }
+        }
+        
+        if (!needsRepair) return false; // Броня в порядке
+        
+        // БРОНЯ СЛОМАНА - ОТСТУПАЕМ И ЧИНИМСЯ!
+        
+        // Получаем цель из BotCombat
+        var combatState = BotCombat.getState(bot.getName().getString());
+        Entity target = combatState.target;
+        
+        // Отступаем от врага если он есть
+        if (target != null) {
+            BotNavigation.lookAway(bot, target);
+            BotNavigation.moveAway(bot, target, 1.5); // Максимальная скорость
+        }
+        
+        // Перемещаем XP бутылку в хотбар если нужно
+        if (xpBottleSlot >= 9) {
+            ItemStack xpBottle = inventory.getStack(xpBottleSlot);
+            ItemStack current = inventory.getStack(8);
+            inventory.setStack(xpBottleSlot, current);
+            inventory.setStack(8, xpBottle);
+            xpBottleSlot = 8;
+        }
+        
+        // Переключаем слот на XP бутылку
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(xpBottleSlot);
+        
+        // Смотрим максимально вниз
+        bot.setPitch(90);
+        
+        // СПАМИМ XP бутылки каждый тик!
+        executeCommand(server, bot, "player " + bot.getName().getString() + " use once");
+        
+        return true; // Возвращаем true - бот чинится
+    }
+    
+    /**
+     * Проверяет есть ли зачарование Mending на предмете
+     */
+    private static boolean hasMendingEnchantment(ItemStack stack) {
+        var enchantments = stack.get(DataComponentTypes.ENCHANTMENTS);
+        if (enchantments == null) return false;
+        
+        // Проверяем все зачарования
+        for (var entry : enchantments.getEnchantments()) {
+            String enchantName = entry.getIdAsString().toLowerCase();
+            if (enchantName.contains("mending")) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Ищет XP бутылку в инвентаре
+     */
+    private static int findXpBottle(net.minecraft.entity.player.PlayerInventory inventory) {
+        for (int i = 0; i < 36; i++) {
+            if (inventory.getStack(i).getItem() == Items.EXPERIENCE_BOTTLE) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

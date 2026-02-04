@@ -465,6 +465,42 @@ public class BotCommand {
                             })
                         )
                     )
+                    
+                    // /pvpbot settings retreat [true/false]
+                    .then(CommandManager.literal("retreat")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("retreat: " + BotSettings.get().isRetreatEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setRetreatEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Retreat enabled: " + BotSettings.get().isRetreatEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    
+                    // /pvpbot settings autoeat [true/false]
+                    .then(CommandManager.literal("autoeat")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("autoeat: " + BotSettings.get().isAutoEatEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setAutoEatEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Auto eat enabled: " + BotSettings.get().isAutoEatEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
+                    
+                    // /pvpbot settings automend [true/false]
+                    .then(CommandManager.literal("automend")
+                        .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("automend: " + BotSettings.get().isAutoMendEnabled()), false); return 1; })
+                        .then(CommandManager.argument("value", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                BotSettings.get().setAutoMendEnabled(BoolArgumentType.getBool(ctx, "value"));
+                                ctx.getSource().sendFeedback(() -> Text.literal("Auto mend enabled: " + BotSettings.get().isAutoMendEnabled()), true);
+                                return 1;
+                            })
+                        )
+                    )
                 )
                 
                 // /pvpbot attack <botname> <target> - с подсказками
