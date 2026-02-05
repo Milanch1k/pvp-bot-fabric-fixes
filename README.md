@@ -248,4 +248,7 @@ This mod adds bots to the server with advanced combat AI, a faction system, auto
 - **Wiki**: https://github.com/Stepan1411/pvp-bot-fabric/wiki
 - **Statistics**: https://stepan1411.github.io/pvp-bot-fabric/
 
+
+Made for my friend [Nantag](https://youtube.com/@nantagmc?si=jCx-NguyQ5zxGm_w) he does really cool videos go check them out if you want
+
 **Have a nice game! 🎮**
