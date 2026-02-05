@@ -219,7 +219,7 @@ This mod adds bots to the server with advanced combat AI, a faction system, auto
 ```
 
 ## 🖼️ Screenshots
-> - Bots in battle
+ - Bots in battle
 <img width="1920" height="1009" alt="2026-02-04_22 48 36" src="https://github.com/user-attachments/assets/168fd083-5157-491b-a129-fb256f351681" />
 
  - Settings GUI
