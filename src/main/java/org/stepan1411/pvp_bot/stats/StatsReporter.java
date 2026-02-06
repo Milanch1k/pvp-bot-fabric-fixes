@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 public class StatsReporter {
     
     private static final String STATS_ENDPOINT = "https://stepan1411.pythonanywhere.com/api/stats";
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private static ScheduledExecutorService scheduler = null;
     private static String serverId = null;
     private static boolean enabled = true;
     private static net.minecraft.server.MinecraftServer currentServer = null;
@@ -35,6 +35,12 @@ public class StatsReporter {
      */
     public static void start(net.minecraft.server.MinecraftServer server) {
         currentServer = server;
+        
+        // Останавливаем предыдущий scheduler если он был
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdown();
+        }
+        
         // Проверяем настройки
         BotSettings settings = BotSettings.get();
         if (!settings.isSendStats()) {
@@ -45,6 +51,9 @@ public class StatsReporter {
         
         // Загружаем или создаём ID сервера
         serverId = loadOrCreateServerId();
+        
+        // Создаём новый scheduler
+        scheduler = Executors.newScheduledThreadPool(1);
         
         // Отправляем статистику сразу при старте
         sendStats();
@@ -65,7 +74,17 @@ public class StatsReporter {
      * Останавливает отправку статистики
      */
     public static void stop() {
-        scheduler.shutdown();
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdown();
+            try {
+                // Ждём завершения задач максимум 2 секунды
+                if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow();
+            }
+        }
         // Отправляем финальную статистику с bots_count = 0
         if (enabled) {
             sendStats();

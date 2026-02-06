@@ -7,6 +7,8 @@ import net.minecraft.server.network.ServerPlayerEntity;
 public class BotTicker {
 
     private static int tickCounter = 0;
+    private static int autoSaveCounter = 0;
+    private static final int AUTO_SAVE_INTERVAL = 1200; // Автосохранение каждые 60 секунд (1200 тиков)
 
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(BotTicker::onServerTick);
@@ -14,8 +16,16 @@ public class BotTicker {
 
     private static void onServerTick(MinecraftServer server) {
         tickCounter++;
+        autoSaveCounter++;
         
         int interval = BotSettings.get().getCheckInterval();
+        
+        // Автосохранение данных ботов каждые 60 секунд
+        if (autoSaveCounter >= AUTO_SAVE_INTERVAL) {
+            BotManager.updateBotData(server);
+            BotManager.saveBots();
+            autoSaveCounter = 0;
+        }
         
         // Очищаем мёртвых ботов каждые 20 тиков (1 секунда)
         if (tickCounter % 20 == 0) {

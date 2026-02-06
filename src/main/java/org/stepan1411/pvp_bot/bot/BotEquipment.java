@@ -182,17 +182,17 @@ public class BotEquipment {
         BotSettings settings = BotSettings.get();
         var inventory = bot.getInventory();
         
-        // Шаг 1: Найти лучшее оружие
+        // Шаг 1: Найти лучшее оружие с учётом preferSword
         int bestSlotIndex = -1;
-        double bestDamage = 0;
+        double bestScore = 0;
         
         for (int i = 0; i < 36; i++) {
             ItemStack stack = inventory.getStack(i);
             if (stack.isEmpty()) continue;
             
-            double damage = getWeaponDamage(stack);
-            if (damage > bestDamage) {
-                bestDamage = damage;
+            double score = getWeaponScore(stack, settings.isPreferSword());
+            if (score > bestScore) {
+                bestScore = score;
                 bestSlotIndex = i;
             }
         }
@@ -211,20 +211,51 @@ public class BotEquipment {
         }
         
         // Шаг 3: Выбрасываем худшее оружие
-        if (settings.isDropWorseWeapons() && bestDamage > 0) {
+        if (settings.isDropWorseWeapons() && bestScore > 0) {
             for (int i = 0; i < 36; i++) {
                 if (i == bestSlotIndex) continue;
                 
                 ItemStack stack = inventory.getStack(i);
                 if (stack.isEmpty()) continue;
                 
-                double damage = getWeaponDamage(stack);
-                if (damage > 0 && damage < bestDamage) {
+                double score = getWeaponScore(stack, settings.isPreferSword());
+                if (score > 0 && score < bestScore) {
                     dropItemBackward(bot, stack);
                     inventory.setStack(i, ItemStack.EMPTY);
                 }
             }
         }
+    }
+
+    /**
+     * Получить "очки" оружия с учётом preferSword
+     * Если preferSword = true, мечи получают бонус +5 к очкам
+     */
+    private static double getWeaponScore(ItemStack stack, boolean preferSword) {
+        if (stack.isEmpty()) return 0;
+        Item item = stack.getItem();
+        
+        double baseDamage = getWeaponDamage(stack);
+        if (baseDamage == 0) return 0;
+        
+        // Если предпочитаем меч - даём мечам бонус
+        if (preferSword && isSword(item)) {
+            return baseDamage + 5; // Меч всегда будет выбран если есть
+        }
+        
+        return baseDamage;
+    }
+    
+    /**
+     * Проверяет, является ли предмет мечом
+     */
+    private static boolean isSword(Item item) {
+        return item == Items.NETHERITE_SWORD || 
+               item == Items.DIAMOND_SWORD || 
+               item == Items.IRON_SWORD || 
+               item == Items.GOLDEN_SWORD || 
+               item == Items.STONE_SWORD || 
+               item == Items.WOODEN_SWORD;
     }
 
     private static double getWeaponDamage(ItemStack stack) {

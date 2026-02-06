@@ -637,10 +637,20 @@ public class BotCombat {
                 }
             }
             
-            // Обычная атака - экипируем меч/топор
+            // Обычная атака - экипируем меч/топор (только если текущее оружие не подходит)
+            int currentSlot = ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).getSelectedSlot();
+            ItemStack currentItem = inventory.getStack(currentSlot);
+            double currentScore = getMeleeScore(currentItem.getItem(), settings.isPreferSword());
+            
             int weaponSlot = findMeleeWeapon(inventory);
             if (weaponSlot >= 0 && weaponSlot < 9) {
-                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+                // Переключаемся только если новое оружие лучше текущего
+                ItemStack newWeapon = inventory.getStack(weaponSlot);
+                double newScore = getMeleeScore(newWeapon.getItem(), settings.isPreferSword());
+                
+                if (newScore > currentScore || currentScore == 0) {
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+                }
             }
             
             // Критический удар - прыжок перед ударом, но атакуем только когда падаем
@@ -675,10 +685,20 @@ public class BotCombat {
                 state.attackCooldown = cooldown;
             }
         } else {
-            // Не атакуем - просто держим оружие в руке
+            // Не атакуем - просто держим оружие в руке (только если текущее оружие не подходит)
+            int currentSlot = ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).getSelectedSlot();
+            ItemStack currentItem = inventory.getStack(currentSlot);
+            double currentScore = getMeleeScore(currentItem.getItem(), settings.isPreferSword());
+            
             int weaponSlot = findMeleeWeapon(inventory);
             if (weaponSlot >= 0 && weaponSlot < 9) {
-                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+                // Переключаемся только если новое оружие лучше текущего
+                ItemStack newWeapon = inventory.getStack(weaponSlot);
+                double newScore = getMeleeScore(newWeapon.getItem(), settings.isPreferSword());
+                
+                if (newScore > currentScore || currentScore == 0) {
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+                }
             }
         }
     }

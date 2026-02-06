@@ -115,25 +115,33 @@ public class BotManager {
             var dispatcher = server.getCommandManager().getDispatcher();
             try {
                 // Формат: player NAME spawn at X Y Z facing YAW PITCH in DIMENSION in GAMEMODE
-                String command = String.format(
+                // Используем Locale.US для точки вместо запятой в числах
+                String command = String.format(java.util.Locale.US,
                     "player %s spawn at %.2f %.2f %.2f facing %.2f %.2f in %s in %s",
                     name, data.x, data.y, data.z, data.yaw, data.pitch, data.dimension, data.gamemode
                 );
+                System.out.println("[PVP_BOT] Trying command: " + command);
                 dispatcher.execute(command, server.getCommandSource());
                 bots.add(name);
                 botDataMap.put(name, data);
+                System.out.println("[PVP_BOT] Successfully restored bot: " + name);
             } catch (Exception e) {
+                System.out.println("[PVP_BOT] First attempt failed: " + e.getMessage());
                 // Пробуем упрощённую команду
                 try {
-                    String simpleCommand = String.format(
+                    String simpleCommand = String.format(java.util.Locale.US,
                         "player %s spawn at %.2f %.2f %.2f",
                         name, data.x, data.y, data.z
                     );
+                    System.out.println("[PVP_BOT] Trying simple command: " + simpleCommand);
                     dispatcher.execute(simpleCommand, server.getCommandSource());
                     bots.add(name);
                     botDataMap.put(name, data);
+                    System.out.println("[PVP_BOT] Successfully restored bot with simple command: " + name);
                 } catch (Exception e2) {
                     System.out.println("[PVP_BOT] Failed to restore bot: " + name);
+                    System.out.println("[PVP_BOT] Error: " + e2.getMessage());
+                    e2.printStackTrace();
                 }
             }
             
@@ -335,13 +343,21 @@ public class BotManager {
     
     /**
      * Проверяет жив ли бот - удаляет мёртвых из списка
+     * НЕ удаляет ботов которые просто не загружены (bot == null)
      */
     public static void cleanupDeadBots(MinecraftServer server) {
         boolean changed = false;
         for (String name : new HashSet<>(bots)) {
             ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
-            // Бот мёртв если: не существует, не жив, или здоровье <= 0
-            boolean isDead = bot == null || !bot.isAlive() || bot.getHealth() <= 0 || bot.isDead();
+            
+            // Если бот не найден (bot == null) - НЕ удаляем его!
+            // Он может быть просто выгружен из памяти (далеко от игрока в синглплеере)
+            if (bot == null) {
+                continue; // Пропускаем, не удаляем
+            }
+            
+            // Удаляем только если бот существует НО мёртв
+            boolean isDead = !bot.isAlive() || bot.getHealth() <= 0 || bot.isDead();
             if (isDead) {
                 // Удаляем мёртвого бота из списка
                 bots.remove(name);
