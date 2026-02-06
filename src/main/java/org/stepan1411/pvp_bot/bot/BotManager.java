@@ -169,14 +169,26 @@ public class BotManager {
      * Сохраняем данные только живых ботов, мёртвые сохраняют последнюю позицию
      */
     public static void updateBotData(MinecraftServer server) {
+        int updated = 0;
+        int skipped = 0;
+        int missing = 0;
         for (String name : bots) {
             ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
             if (bot != null && bot.isAlive()) {
                 // Обновляем данные живого бота
                 botDataMap.put(name, new BotData(bot));
+                updated++;
+            } else if (!botDataMap.containsKey(name)) {
+                // Бот в списке но нет данных - это проблема!
+                // Удаляем такого бота из списка
+                missing++;
+                System.out.println("[PVP_BOT] WARNING: Bot " + name + " in list but has no data!");
+            } else {
+                // Бот не загружен или мёртв - сохраняем старые данные
+                skipped++;
             }
-            // Мёртвые боты сохраняют последние данные из botDataMap
         }
+        System.out.println("[PVP_BOT] Updated bot data: " + updated + " updated, " + skipped + " skipped, " + missing + " missing, " + bots.size() + " total in list, " + botDataMap.size() + " in data map");
     }
     
     /**
@@ -227,6 +239,7 @@ public class BotManager {
                 bots.add(name); // Добавляем в список если не было
                 botDataMap.put(name, new BotData(existingPlayer));
                 saveBots();
+                System.out.println("[PVP_BOT] Added existing bot to list: " + name);
             }
             return false;
         }
@@ -256,7 +269,12 @@ public class BotManager {
                 botDataMap.put(name, new BotData(newBot));
                 incrementBotsSpawned(); // Увеличиваем счетчик
                 saveBots();
-                System.out.println("[PVP_BOT] Added bot to list: " + name);
+                System.out.println("[PVP_BOT] Added bot to list (delayed): " + name);
+            } else if (newBot != null && bots.contains(name)) {
+                // Бот уже в списке, но обновим данные
+                botDataMap.put(name, new BotData(newBot));
+                saveBots();
+                System.out.println("[PVP_BOT] Updated bot data (delayed): " + name);
             }
         });
         
@@ -268,16 +286,28 @@ public class BotManager {
                 botDataMap.put(name, new BotData(newBot));
                 incrementBotsSpawned(); // Увеличиваем счетчик
                 saveBots();
+                System.out.println("[PVP_BOT] Added bot to list (immediate): " + name);
             }
             return true;
         }
         
-        // Бот ещё не появился, но добавим имя в список
-        // (он появится позже и будет обработан)
+        // Бот ещё не появился, добавим имя в список с дефолтными данными
         if (!bots.contains(name)) {
             bots.add(name);
+            // Создаём дефолтные данные (позиция игрока который спавнит)
+            BotData defaultData = new BotData();
+            defaultData.name = name;
+            defaultData.x = source.getPosition().x;
+            defaultData.y = source.getPosition().y;
+            defaultData.z = source.getPosition().z;
+            defaultData.yaw = source.getRotation().y;
+            defaultData.pitch = source.getRotation().x;
+            defaultData.dimension = source.getWorld().getRegistryKey().getValue().toString();
+            defaultData.gamemode = "survival";
+            botDataMap.put(name, defaultData);
             incrementBotsSpawned(); // Увеличиваем счетчик
             saveBots();
+            System.out.println("[PVP_BOT] Added bot to list (default data): " + name);
         }
         
         return true;
