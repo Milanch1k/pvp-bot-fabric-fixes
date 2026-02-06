@@ -89,9 +89,13 @@ public class BotCommand {
                     .executes(ctx -> listBots(ctx.getSource()))
                 )
                 
-                // /pvpbot sync - синхронизировать список ботов с сервером
+                // /pvpbot sync [name] - синхронизировать список ботов с сервером
                 .then(CommandManager.literal("sync")
                     .executes(ctx -> syncBots(ctx.getSource()))
+                    .then(CommandManager.argument("name", StringArgumentType.word())
+                        .suggests(PLAYER_SUGGESTIONS)
+                        .executes(ctx -> syncBot(ctx.getSource(), StringArgumentType.getString(ctx, "name")))
+                    )
                 )
                 
                 // /pvpbot menu - открыть тестовое меню
@@ -869,6 +873,38 @@ public class BotCommand {
         
         source.sendFeedback(() -> Text.literal("Synced! Added " + added + " bots. Total: " + afterCount), true);
         return added;
+    }
+    
+    private static int syncBot(ServerCommandSource source, String name) {
+        var server = source.getServer();
+        
+        // Проверяем есть ли такой игрок
+        ServerPlayerEntity player = server.getPlayerManager().getPlayer(name);
+        if (player == null) {
+            source.sendFeedback(() -> Text.literal("Player " + name + " not found on server!"), false);
+            return 0;
+        }
+        
+        // Показываем информацию об игроке
+        String className = player.getClass().getName();
+        boolean inList = BotManager.getAllBots().contains(name);
+        source.sendFeedback(() -> Text.literal("Player: " + name), false);
+        source.sendFeedback(() -> Text.literal("Class: " + className), false);
+        source.sendFeedback(() -> Text.literal("In bot list: " + inList), false);
+        
+        // Синхронизируем
+        boolean added = BotManager.syncBot(server, name);
+        
+        if (added) {
+            source.sendFeedback(() -> Text.literal("Successfully added " + name + " to bot list!"), true);
+            return 1;
+        } else if (inList) {
+            source.sendFeedback(() -> Text.literal(name + " is already in bot list!"), false);
+            return 0;
+        } else {
+            source.sendFeedback(() -> Text.literal(name + " is not a fake player (Carpet bot)!"), false);
+            return 0;
+        }
     }
 
     private static int openSettingsGui(ServerCommandSource source) {

@@ -30,8 +30,7 @@ public class BotTicker {
         // Очищаем мёртвых ботов каждые 20 тиков (1 секунда)
         if (tickCounter % 20 == 0) {
             BotManager.cleanupDeadBots(server);
-            // Синхронизируем список ботов с сервером
-            BotManager.syncBots(server);
+            // УБРАЛИ автоматическую синхронизацию - теперь только по команде /pvpbot sync
         }
         
         for (String botName : BotManager.getAllBots()) {

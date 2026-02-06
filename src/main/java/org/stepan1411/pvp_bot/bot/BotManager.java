@@ -438,6 +438,41 @@ public class BotManager {
     }
     
     /**
+     * Синхронизирует конкретного бота по имени
+     * Добавляет бота в список если он fake player и его нет в списке
+     */
+    public static boolean syncBot(MinecraftServer server, String name) {
+        // Проверяем если уже в списке
+        if (bots.contains(name)) {
+            return false;
+        }
+        
+        // Ищем игрока на сервере
+        ServerPlayerEntity player = server.getPlayerManager().getPlayer(name);
+        if (player == null) {
+            return false;
+        }
+        
+        // Проверяем что это fake player
+        String className = player.getClass().getName();
+        boolean isFakePlayer = className.contains("EntityPlayerMPFake") || 
+                               className.contains("FakePlayer") ||
+                               className.contains("fake") ||
+                               className.contains("Fake");
+        
+        if (isFakePlayer) {
+            bots.add(name);
+            botDataMap.put(name, new BotData(player));
+            incrementBotsSpawned();
+            saveBots();
+            System.out.println("[PVP_BOT] Synced bot: " + name);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Увеличивает счетчик заспавненных ботов
      */
     public static void incrementBotsSpawned() {
