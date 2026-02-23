@@ -1,0 +1,28 @@
+{
+  "stats": {
+    "minecraft:dropped": {
+      "minecraft:water_bucket": 1
+    },
+    "minecraft:used": {
+      "minecraft:cobweb": 49,
+      "minecraft:end_crystal": 11
+    },
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 7684,
+      "minecraft:time_since_rest": 4109,
+      "minecraft:walk_one_cm": 6319,
+      "minecraft:leave_game": 1,
+      "minecraft:play_time": 4109,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 47,
+      "minecraft:time_since_death": 4109,
+      "minecraft:drop": 1,
+      "minecraft:sprint_one_cm": 1084,
+      "minecraft:total_world_time": 4131,
+      "minecraft:fly_one_cm": 4580,
+      "minecraft:crouch_one_cm": 18,
+      "minecraft:sneak_time": 22
+    }
+  },
+  "DataVersion": 4671
+}

@@ -77,7 +77,8 @@ public class BotSettings {
     private int minHungerToEat = 14;              // Минимальный голод для еды
     private boolean autoPotionEnabled = true;     // Авто-зелья исцеления
     private boolean cobwebEnabled = true;         // Использовать паутину
-    
+    private boolean escapeFromCobweb = true;      // Выбираться из паутины
+
     // ============ Навигация и движение ============
     private boolean retreatEnabled = false;       // Отступать при низком HP (ВЫКЛЮЧЕНО по умолчанию)
     private double retreatHealthPercent = 0.3;    // Процент HP для отступления (0.3 = 30%)
@@ -377,4 +378,13 @@ public class BotSettings {
         save(); 
     }
     public void setBotsRelogs(boolean value) { this.botsRelogs = value; save(); }
+
+    public boolean isEscapeFromCobweb() {
+        return escapeFromCobweb;
+    }
+
+    public void setEscapeFromCobweb(boolean escapeFromCobweb) {
+        this.escapeFromCobweb = escapeFromCobweb;
+        save();
+    }
 }

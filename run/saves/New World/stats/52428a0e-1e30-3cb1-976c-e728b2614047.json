@@ -1,0 +1,38 @@
+{
+  "stats": {
+    "minecraft:picked_up": {
+      "minecraft:water_bucket": 1,
+      "minecraft:leaf_litter": 12,
+      "minecraft:dirt": 1,
+      "minecraft:string": 117,
+      "minecraft:birch_sapling": 1,
+      "minecraft:sand": 6,
+      "minecraft:oak_planks": 128,
+      "minecraft:sandstone": 1
+    },
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 65215,
+      "minecraft:time_since_rest": 36357,
+      "minecraft:total_world_time": 37353,
+      "minecraft:leave_game": 23,
+      "minecraft:mob_kills": 3,
+      "minecraft:damage_taken": 1898,
+      "minecraft:damage_dealt": 0,
+      "minecraft:play_time": 36357,
+      "minecraft:jump": 1392,
+      "minecraft:time_since_death": 36357
+    },
+    "minecraft:killed": {
+      "minecraft:turtle": 3
+    },
+    "minecraft:used": {
+      "minecraft:water_bucket": 105,
+      "minecraft:string": 8,
+      "minecraft:bucket": 59,
+      "minecraft:cobweb": 6,
+      "minecraft:end_crystal": 144,
+      "minecraft:obsidian": 21
+    }
+  },
+  "DataVersion": 4671
+}

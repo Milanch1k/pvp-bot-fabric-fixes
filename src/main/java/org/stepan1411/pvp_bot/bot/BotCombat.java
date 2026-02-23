@@ -1,14 +1,20 @@
 package org.stepan1411.pvp_bot.bot;
 
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.CobwebBlock;
+import net.minecraft.command.argument.EntityAnchorArgumentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
 import net.minecraft.item.*;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -38,6 +44,9 @@ public class BotCombat {
         
         // Состояние паутины
         public int cobwebCooldown = 0; // Кулдаун на размещение паутины
+        public int waterCooldown = 0;
+        public boolean shouldPickupEscapeWater = false;
+        public int waterPickupTicks = 0;
         
         // Состояние щита
         public boolean isUsingShield = false; // Щит активен через Carpet команду
@@ -93,7 +102,10 @@ public class BotCombat {
             }
         }
         state.lastHealth = currentHealth;
-        
+        if (settings.isEscapeFromCobweb() && tryEscapeCobweb(bot, server, state)) {
+            return;
+        }
+
         // Уменьшаем кулдаун
         if (state.attackCooldown > 0) {
             state.attackCooldown--;
@@ -624,7 +636,7 @@ public class BotCombat {
                         inventory.setStack(0, axe);
                         axeSlot = 0;
                     }
-                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(axeSlot);
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(axeSlot);
                     
                     // Атакуем топором чтобы сбить щит
                     attackWithCarpet(bot, target, server);
@@ -644,7 +656,7 @@ public class BotCombat {
             }
             
             // Обычная атака - экипируем меч/топор (только если текущее оружие не подходит)
-            int currentSlot = ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).getSelectedSlot();
+            int currentSlot = ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).getSelectedSlotAccessor();
             ItemStack currentItem = inventory.getStack(currentSlot);
             double currentScore = getMeleeScore(currentItem.getItem(), settings.isPreferSword());
             
@@ -655,7 +667,7 @@ public class BotCombat {
                 double newScore = getMeleeScore(newWeapon.getItem(), settings.isPreferSword());
                 
                 if (newScore > currentScore || currentScore == 0) {
-                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(weaponSlot);
                 }
             }
             
@@ -692,7 +704,7 @@ public class BotCombat {
             }
         } else {
             // Не атакуем - просто держим оружие в руке (только если текущее оружие не подходит)
-            int currentSlot = ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).getSelectedSlot();
+            int currentSlot = ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).getSelectedSlotAccessor();
             ItemStack currentItem = inventory.getStack(currentSlot);
             double currentScore = getMeleeScore(currentItem.getItem(), settings.isPreferSword());
             
@@ -703,7 +715,7 @@ public class BotCombat {
                 double newScore = getMeleeScore(newWeapon.getItem(), settings.isPreferSword());
                 
                 if (newScore > currentScore || currentScore == 0) {
-                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(weaponSlot);
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(weaponSlot);
                 }
             }
         }
@@ -718,7 +730,7 @@ public class BotCombat {
         // Экипируем лук
         int bowSlot = findRangedWeapon(inventory);
         if (bowSlot >= 0 && bowSlot < 9) {
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(bowSlot);
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(bowSlot);
         }
         
         // Проверяем есть ли стрелы
@@ -812,7 +824,7 @@ public class BotCombat {
         if (!bot.isOnGround()) {
             int maceSlot = findMace(inventory);
             if (maceSlot >= 0 && maceSlot < 9) {
-                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(maceSlot);
+                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(maceSlot);
             }
             
             // Атакуем при падении - раньше для максимального урона
@@ -839,7 +851,7 @@ public class BotCombat {
                 // Нет wind charge - обычный прыжок с булавой
                 int maceSlot = findMace(inventory);
                 if (maceSlot >= 0 && maceSlot < 9) {
-                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(maceSlot);
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(maceSlot);
                 }
                 
                 bot.jump();
@@ -858,7 +870,7 @@ public class BotCombat {
         if (bot.isOnGround() && distance <= 3.5 && state.attackCooldown <= 0) {
             int maceSlot = findMace(inventory);
             if (maceSlot >= 0 && maceSlot < 9) {
-                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(maceSlot);
+                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(maceSlot);
             }
             attackWithCarpet(bot, target, server);
             state.attackCooldown = settings.getAttackCooldown();
@@ -890,7 +902,7 @@ public class BotCombat {
         // Экипируем копьё
         int spearSlot = findSpear(inventory);
         if (spearSlot >= 0 && spearSlot < 9) {
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(spearSlot);
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(spearSlot);
         }
         
         double chargeStartDistance = 10.0; // Начинаем charge за 5 блоков
@@ -967,6 +979,7 @@ public class BotCombat {
         
         bot.attack(target);
         bot.swingHand(Hand.MAIN_HAND);
+
     }
     
     /**
@@ -1340,7 +1353,7 @@ public class BotCombat {
         }
         
         // Переключаем на паутину
-        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(cobwebSlot);
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(cobwebSlot);
         
         // Начинаем процесс размещения
         state.isPlacingCobweb = true;
@@ -1348,7 +1361,181 @@ public class BotCombat {
         
         return true;
     }
-    
+
+    private static int findWater(net.minecraft.entity.player.PlayerInventory inventory) {
+        for (int i = 0; i < 36; i++) {
+            ItemStack stack = inventory.getStack(i);
+            if (stack.getItem() == Items.WATER_BUCKET) return i;
+        }
+        return -1;
+    }
+
+    private static int findEmptyBucket(net.minecraft.entity.player.PlayerInventory inventory) {
+        for (int i = 0; i < 36; i++) {
+            ItemStack stack = inventory.getStack(i);
+            if (stack.getItem() == Items.BUCKET) return i;
+        }
+        return -1;
+    }
+
+    private static BlockPos findNearbyWaterSource(ServerWorld world, BlockPos center) {
+        BlockPos[] candidates = new BlockPos[] {
+                center,
+                center.down(),
+                center.up(),
+                center.north(),
+                center.south(),
+                center.east(),
+                center.west()
+        };
+
+        for (BlockPos checkPos : candidates) {
+            net.minecraft.fluid.FluidState fluid = world.getFluidState(checkPos);
+            if (fluid.isIn(net.minecraft.registry.tag.FluidTags.WATER) && fluid.isStill()) {
+                return checkPos;
+            }
+        }
+
+        return null;
+    }
+
+    private static boolean tryEscapeCobweb(ServerPlayerEntity bot, net.minecraft.server.MinecraftServer server, CombatState state) {
+        ServerWorld world = server.getWorld(bot.getEntityWorld().getRegistryKey());
+        if (world == null) return false;
+
+        BlockPos pos = bot.getBlockPos();
+        Block block = world.getBlockState(pos).getBlock();
+        var inventory = bot.getInventory();
+        int waterSlot = findWater(inventory);
+
+        if (block instanceof CobwebBlock) {
+            if (waterSlot == -1) {
+                return state.shouldPickupEscapeWater;
+            }
+
+            if (waterSlot >= 9) {
+                ItemStack waterBucket = inventory.getStack(waterSlot);
+                ItemStack current = inventory.getStack(0);
+                inventory.setStack(waterSlot, current);
+                inventory.setStack(0, waterBucket);
+                waterSlot = 0;
+            }
+
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory)
+                    .setSelectedSlotAccessor(waterSlot);
+
+            if (state.waterCooldown == 0) {
+                try {
+                    lookAt(bot, pos);
+                    server.getCommandManager().getDispatcher().execute(
+                            "player " + bot.getName().getString() + " use once",
+                            server.getCommandSource()
+                    );
+                    state.shouldPickupEscapeWater = true;
+                    state.waterPickupTicks = 0;
+                } catch (CommandSyntaxException ignored) {}
+            }
+
+            state.waterCooldown++;
+            return true;
+        }
+
+        state.waterCooldown = 0;
+        if (!state.shouldPickupEscapeWater) return false;
+
+        int bucketSlot = findEmptyBucket(inventory);
+        if (bucketSlot == -1) {
+            state.shouldPickupEscapeWater = false;
+            state.waterPickupTicks = 0;
+            return false;
+        }
+
+        BlockPos waterPos = findNearbyWaterSource(world, pos);
+        if (waterPos == null) {
+            state.shouldPickupEscapeWater = false;
+            state.waterPickupTicks = 0;
+            return false;
+        }
+
+        if (bucketSlot >= 9) {
+            ItemStack bucket = inventory.getStack(bucketSlot);
+            ItemStack current = inventory.getStack(0);
+            inventory.setStack(bucketSlot, current);
+            inventory.setStack(0, bucket);
+            bucketSlot = 0;
+        }
+
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory)
+                .setSelectedSlotAccessor(bucketSlot);
+
+        try {
+            lookAt(bot, waterPos);
+            server.getCommandManager().getDispatcher().execute(
+                    "player " + bot.getName().getString() + " use once",
+                    server.getCommandSource()
+            );
+        } catch (CommandSyntaxException ignored) {}
+
+        state.waterPickupTicks++;
+        if (findWater(inventory) != -1 || state.waterPickupTicks >= 20) {
+            state.shouldPickupEscapeWater = false;
+            state.waterPickupTicks = 0;
+        }
+
+        return true;
+    }
+
+    private static int findBlock(net.minecraft.entity.player.PlayerInventory inventory) {
+        for (int i = 0; i < 36; i++) {
+            ItemStack stack = inventory.getStack(i);
+            if (!stack.isEmpty() && stack.getItem() instanceof BlockItem) return i;
+        }
+        return -1;
+    }
+
+    public static int tryToBuildUp(ServerPlayerEntity bot, net.minecraft.server.MinecraftServer server) {
+        var inventory = bot.getInventory();
+        int blockSlot = findBlock(inventory);
+
+        if (blockSlot >= 9) {
+            ItemStack cobweb = inventory.getStack(blockSlot);
+            ItemStack current = inventory.getStack(0);
+            inventory.setStack(blockSlot, current);
+            inventory.setStack(0, cobweb);
+            blockSlot = 0;
+        }
+
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(blockSlot);
+
+        BlockPos base = bot.getBlockPos();
+
+        BlockPos[] positions = new BlockPos[] {
+                base.north(),
+                base.south(),
+                base.east(),
+                base.west(),
+                base.up().north(),
+                base.up().south(),
+                base.up().east(),
+                base.up().west(),
+                base.up(2)
+        };
+
+        for (BlockPos pos : positions) {
+            lookAt(bot, pos);
+            try {
+                server.getCommandManager().getDispatcher().execute(
+                        "player " + bot.getName().getString() + " use once",
+                        server.getCommandSource()
+                );
+            } catch (CommandSyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return 1;
+    }
+
     /**
      * Обработка процесса размещения паутины
      * Вызывается каждый тик когда isPlacingCobweb = true
@@ -1447,5 +1634,25 @@ public class BotCombat {
      */
     public static Entity getTarget(String botName) {
         return getState(botName).target;
+    }
+
+    /**
+     * Смотреть на позицию
+     */
+    private static void lookAt(ServerPlayerEntity bot, BlockPos pos) {
+        Vec3d target = new Vec3d(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        Vec3d botPos = bot.getEyePos();
+
+        double dx = target.x - botPos.x;
+        double dy = target.y - botPos.y;
+        double dz = target.z - botPos.z;
+        double horizontalDist = Math.sqrt(dx * dx + dz * dz);
+
+        float yaw = (float) (Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
+        float pitch = (float) -(Math.atan2(dy, horizontalDist) * (180.0 / Math.PI));
+
+        bot.setYaw(yaw);
+        bot.setPitch(pitch);
+        bot.setHeadYaw(yaw);
     }
 }

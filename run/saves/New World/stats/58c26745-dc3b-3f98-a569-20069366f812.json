@@ -1,0 +1,20 @@
+{
+  "stats": {
+    "minecraft:used": {
+      "minecraft:cobweb": 19
+    },
+    "minecraft:custom": {
+      "minecraft:time_since_rest": 915,
+      "minecraft:walk_one_cm": 2036,
+      "minecraft:total_world_time": 931,
+      "minecraft:leave_game": 1,
+      "minecraft:fly_one_cm": 312,
+      "minecraft:walk_on_water_one_cm": 139,
+      "minecraft:play_time": 915,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 35,
+      "minecraft:time_since_death": 915
+    }
+  },
+  "DataVersion": 4671
+}

@@ -1,0 +1,20 @@
+{
+  "stats": {
+    "minecraft:picked_up": {
+      "minecraft:string": 12
+    },
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 529,
+      "minecraft:time_since_rest": 2897,
+      "minecraft:total_world_time": 2913,
+      "minecraft:leave_game": 6,
+      "minecraft:play_time": 2897,
+      "minecraft:jump": 156,
+      "minecraft:time_since_death": 2897
+    },
+    "minecraft:used": {
+      "minecraft:water_bucket": 5
+    }
+  },
+  "DataVersion": 4671
+}

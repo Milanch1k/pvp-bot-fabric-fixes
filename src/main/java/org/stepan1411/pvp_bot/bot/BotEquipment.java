@@ -5,9 +5,6 @@ import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.*;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class BotEquipment {
 
     public static void autoEquip(ServerPlayerEntity bot) {
@@ -207,7 +204,7 @@ public class BotEquipment {
                 inventory.setStack(0, weapon);
                 bestSlotIndex = 0;
             }
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(bestSlotIndex);
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(bestSlotIndex);
         }
         
         // Шаг 3: Выбрасываем худшее оружие

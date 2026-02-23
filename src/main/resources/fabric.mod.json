@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "PVP Bot",
   "description": "Advanced PvP bot with combat AI, factions, auto-equip, navigation and more!",
-  "authors": ["Stepan1411"],
+  "authors": ["Milanchik", "Stepan1411"],
   "contact": {
     "homepage": "https://modrinth.com/mod/pvp-bot-fabric",
     "sources": "https://github.com/Stepan1411/pvp-bot-fabric",

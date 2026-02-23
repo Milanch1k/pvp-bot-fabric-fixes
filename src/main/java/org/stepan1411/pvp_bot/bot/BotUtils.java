@@ -92,7 +92,7 @@ public class BotUtils {
                         nextSlot = 8;
                     }
                     
-                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(nextSlot);
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(nextSlot);
                     state.throwingPotionTicks = 0; // Сбрасываем для следующего зелья
                 } else {
                     // Очередь пуста - заканчиваем
@@ -230,7 +230,7 @@ public class BotUtils {
                 firstSlot = 8;
             }
             
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(firstSlot);
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(firstSlot);
             
             // Сохраняем остальные зелья в очередь
             state.potionsToThrow.clear();
@@ -326,7 +326,7 @@ public class BotUtils {
         }
         
         // Переключаем слот
-        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(slot);
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(slot);
         
         if (potionItem instanceof SplashPotionItem || potionItem instanceof LingeringPotionItem) {
             // Взрывное зелье - начинаем процесс броска под себя
@@ -340,6 +340,7 @@ public class BotUtils {
             state.eatingTicks = 0;
             state.eatingSlot = slot;
             state.buffPotionCooldown = 10;
+            bot.setSprinting(false);
             bot.setCurrentHand(Hand.MAIN_HAND);
             return true;
         }
@@ -380,7 +381,7 @@ public class BotUtils {
             
             // ПРИНУДИТЕЛЬНО держим слот с едой
             if (state.eatingSlot >= 0 && state.eatingSlot < 9) {
-                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) bot.getInventory()).setSelectedSlot(state.eatingSlot);
+                ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) bot.getInventory()).setSelectedSlotAccessor(state.eatingSlot);
             }
             
             // Держим ПКМ нажатым напрямую (не через Carpet - это не сбрасывает прогресс)
@@ -436,11 +437,12 @@ public class BotUtils {
                     state.eatingSlot = foodSlot;
                     
                     // Переключаем слот напрямую
-                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(foodSlot);
+                    ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(foodSlot);
                     
                     // Начинаем есть напрямую
                     bot.setCurrentHand(Hand.MAIN_HAND);
                     state.isEating = true;
+                    bot.setSprinting(false);
                     state.eatingTicks = 0;
                 }
             }
@@ -650,7 +652,7 @@ public class BotUtils {
             slot = 0;
         }
         
-        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(slot);
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(slot);
         
         // Смотрим вниз
         bot.setPitch(90);
@@ -688,9 +690,9 @@ public class BotUtils {
             ItemStack current = inventory.getStack(0);
             inventory.setStack(axeSlot, current);
             inventory.setStack(0, axe);
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(0);
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(0);
         } else {
-            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(axeSlot);
+            ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(axeSlot);
         }
         return true;
     }
@@ -767,7 +769,7 @@ public class BotUtils {
         }
         
         // Переключаем слот
-        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(potionSlot);
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(potionSlot);
         
         if (potionItem instanceof SplashPotionItem || potionItem instanceof LingeringPotionItem) {
             // Взрывное зелье - начинаем процесс броска под себя
@@ -778,6 +780,7 @@ public class BotUtils {
         } else if (potionItem instanceof PotionItem) {
             // Обычное зелье - пьём
             state.isEating = true;
+            bot.setSprinting(false);
             state.eatingTicks = 0;
             state.eatingSlot = potionSlot;
             state.potionCooldown = 5; // 5 тиков после питья
@@ -939,7 +942,7 @@ public class BotUtils {
         }
         
         // Переключаем слот на XP бутылку
-        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlot(xpBottleSlot);
+        ((org.stepan1411.pvp_bot.mixin.PlayerInventoryAccessor) inventory).setSelectedSlotAccessor(xpBottleSlot);
         
         // Смотрим максимально вниз
         bot.setPitch(90);

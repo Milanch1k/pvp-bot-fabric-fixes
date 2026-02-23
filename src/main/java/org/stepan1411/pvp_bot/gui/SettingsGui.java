@@ -171,6 +171,13 @@ public class SettingsGui extends SimpleGui {
             s::isCobwebEnabled,
             s::setCobwebEnabled
         ));
+
+        allSettings.add(new SettingEntry(
+                "Cobweb escape",
+                "Escape from cobweb",
+                s::isEscapeFromCobweb,
+                s::setEscapeFromCobweb
+        ));
         
         // === Navigation ===
         allSettings.add(new SettingEntry(

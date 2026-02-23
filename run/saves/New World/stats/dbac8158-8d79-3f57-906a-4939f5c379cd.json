@@ -1,0 +1,32 @@
+{
+  "stats": {
+    "minecraft:dropped": {
+      "minecraft:birch_stairs": 1
+    },
+    "minecraft:picked_up": {
+      "minecraft:leaf_litter": 3,
+      "minecraft:string": 15
+    },
+    "minecraft:used": {
+      "minecraft:cobweb": 91
+    },
+    "minecraft:custom": {
+      "minecraft:time_since_rest": 2959,
+      "minecraft:walk_one_cm": 5637,
+      "minecraft:leave_game": 1,
+      "minecraft:walk_under_water_one_cm": 75,
+      "minecraft:play_time": 2959,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 50,
+      "minecraft:time_since_death": 2959,
+      "minecraft:drop": 1,
+      "minecraft:sprint_one_cm": 12,
+      "minecraft:total_world_time": 3061,
+      "minecraft:fly_one_cm": 1538,
+      "minecraft:walk_on_water_one_cm": 1718,
+      "minecraft:crouch_one_cm": 194,
+      "minecraft:sneak_time": 58
+    }
+  },
+  "DataVersion": 4671
+}

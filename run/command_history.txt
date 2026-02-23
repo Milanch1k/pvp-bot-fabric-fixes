@@ -1,0 +1,50 @@
+/pvpbot removeall
+/pvpbot spawn .
+/pvpbot givekit . 2
+/pvpbot removeall
+/time set day\
+/time set day
+/pvpbot spawn a
+/pvpbot menu
+/pvpbot removeall
+/pvpbot spawn a
+/pvpbot givekit a 1
+/pvpbot givekit a 2
+/pvpbot givekit Player623 2
+/pvpbot createkit 3
+/pvpbot givekit a 3
+/pvpbot settings escapefromcobweb false
+/pvpbot settings escapefromcobweb true
+/pvpbot settings escapefromcobweb false
+/pvpbot menu
+/pvpbot givekit a 3
+/tp a Player409
+/pvpbot testbuild a
+/pvpbot removeall
+/pvpbot spawn a
+/clear a
+/pvpbot testbuild a
+/time set day
+/pvpbot givekit a 3
+/pvpbot removeall
+/pvpbot spawn a
+/pvpbot list
+/pvpbot spawn aaaa
+/pvpbot spawn aaa
+/pvpbot givekit aaa 3
+/pvpbot spawn a
+/tp a Player875
+/pvpbot spawn a
+/pvpbot spawn aa
+/pvpbot spawn a
+/pvpbot removeall
+/pvpbot spawn a
+/pvpbot spawn as
+/pvpbot list
+/pvpbot removeall
+/pvpbot spawn a
+/tp Player19
+/pvpbot spawn a
+/pvpbot spawn aa
+/pvpbot spawn aaa
+/pvpbot givekit aa 3

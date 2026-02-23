@@ -1,0 +1,31 @@
+{
+  "stats": {
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 24030,
+      "minecraft:time_since_rest": 4446,
+      "minecraft:walk_one_cm": 24964,
+      "minecraft:leave_game": 1,
+      "minecraft:play_time": 4446,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 92,
+      "minecraft:time_since_death": 4446,
+      "minecraft:sprint_one_cm": 5881,
+      "minecraft:fall_one_cm": 5087,
+      "minecraft:total_world_time": 4468,
+      "minecraft:fly_one_cm": 18006,
+      "minecraft:sneak_time": 8
+    },
+    "minecraft:picked_up": {
+      "minecraft:cobblestone": 5,
+      "minecraft:sand": 7
+    },
+    "minecraft:used": {
+      "minecraft:end_crystal": 48,
+      "minecraft:obsidian": 85
+    },
+    "minecraft:mined": {
+      "minecraft:sand": 2
+    }
+  },
+  "DataVersion": 4671
+}

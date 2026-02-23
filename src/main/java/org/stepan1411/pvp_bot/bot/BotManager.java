@@ -7,12 +7,16 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.WorldSavePath;
 import net.minecraft.world.GameMode;
 
 import java.io.Reader;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -24,12 +28,15 @@ public class BotManager {
     private static final Set<String> bots = new HashSet<>();
     private static final Map<String, BotData> botDataMap = new HashMap<>();
     private static Path savePath;
+    private static Path statsPath;
+    private static Path botsFallbackPath;
+    private static Path statsFallbackPath;
     private static boolean initialized = false;
-    
+
     // Статистика
     private static int botsSpawnedTotal = 0;
     private static int botsKilledTotal = 0;
-    
+
     /**
      * Данные бота для сохранения
      */
@@ -39,9 +46,10 @@ public class BotManager {
         public float yaw, pitch;
         public String dimension; // minecraft:overworld, minecraft:the_nether, minecraft:the_end
         public String gamemode; // survival, creative, adventure, spectator
-        
-        public BotData() {}
-        
+
+        public BotData() {
+        }
+
         public BotData(ServerPlayerEntity bot) {
             this.name = bot.getName().getString();
             this.x = bot.getX();
@@ -53,7 +61,7 @@ public class BotManager {
             this.gamemode = bot.interactionManager.getGameMode().asString();
         }
     }
-    
+
     /**
      * Класс для сохранения статистики
      */
@@ -67,7 +75,7 @@ public class BotManager {
      */
     public static void init(MinecraftServer server) {
         if (initialized) return;
-        
+
         // Создаём папку config/pvpbot если не существует
         Path configDir = FabricLoader.getInstance().getConfigDir().resolve("pvpbot");
         try {
@@ -75,11 +83,26 @@ public class BotManager {
         } catch (Exception e) {
             System.out.println("[PVP_BOT] Failed to create config directory: " + e.getMessage());
         }
-        
-        savePath = configDir.resolve("bots.json");
+
+        Path worldPath = server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();
+        String folderName = worldPath.getFileName().toString();
+        String serverKey = buildServerKey(worldPath);
+        String safeFolderName = sanitizeFilePart(folderName);
+
+        savePath = configDir.resolve("bots_" + safeFolderName + "_" + serverKey + ".json");
+        statsPath = configDir.resolve("stats_" + serverKey + ".json");
+        botsFallbackPath = configDir.resolve("bots_" + folderName + ".json");
+        statsFallbackPath = configDir.resolve("stats.json");
+
+        // Полностью сбрасываем состояние перед загрузкой нового мира
+        bots.clear();
+        botDataMap.clear();
+        botsSpawnedTotal = 0;
+        botsKilledTotal = 0;
+
         loadBots();
         loadStats();
-        
+
         // Респавним сохранённых ботов только если включена настройка botsRelogs
         BotSettings settings = BotSettings.get();
         if (settings.isBotsRelogs() && !botDataMap.isEmpty()) {
@@ -87,7 +110,7 @@ public class BotManager {
             Map<String, BotData> botsToRestore = new HashMap<>(botDataMap);
             bots.clear();
             botDataMap.clear();
-            
+
             // Запускаем респавн с задержкой
             server.execute(() -> restoreBotsDelayed(server, botsToRestore, 0));
         } else if (!settings.isBotsRelogs()) {
@@ -96,27 +119,27 @@ public class BotManager {
             botDataMap.clear();
             saveBots();
         }
-        
+
         initialized = true;
     }
-    
+
     private static void restoreBotsDelayed(MinecraftServer server, Map<String, BotData> botsToRestore, int index) {
         restoreBotsDelayedWithRetry(server, botsToRestore, index, 0);
     }
-    
+
     private static void restoreBotsDelayedWithRetry(MinecraftServer server, Map<String, BotData> botsToRestore, int index, int retryCount) {
         final int MAX_RETRIES = 2; // Максимум 2 повторные попытки (всего 3 попытки)
-        
+
         if (index >= botsToRestore.size()) {
             System.out.println("[PVP_BOT] Restored " + bots.size() + " bots");
             return;
         }
-        
+
         String[] names = botsToRestore.keySet().toArray(new String[0]);
         if (index < names.length) {
             String name = names[index];
             BotData data = botsToRestore.get(name);
-            
+
             // Проверяем не онлайн ли уже реальный игрок с таким ником
             ServerPlayerEntity existingPlayer = server.getPlayerManager().getPlayer(name);
             if (existingPlayer != null && !bots.contains(name)) {
@@ -126,16 +149,16 @@ public class BotManager {
                 server.execute(() -> restoreBotsDelayedWithRetry(server, botsToRestore, nextIndex, 0));
                 return;
             }
-            
+
             // Спавним бота с позицией и измерением
             var dispatcher = server.getCommandManager().getDispatcher();
             boolean success = false;
-            
+
             try {
                 // Формат: player NAME spawn at X Y Z facing YAW PITCH in DIMENSION in GAMEMODE
                 String command = String.format(java.util.Locale.US,
-                    "player %s spawn at %.2f %.2f %.2f facing %.2f %.2f in %s in %s",
-                    name, data.x, data.y, data.z, data.yaw, data.pitch, data.dimension, data.gamemode
+                        "player %s spawn at %.2f %.2f %.2f facing %.2f %.2f in %s in %s",
+                        name, data.x, data.y, data.z, data.yaw, data.pitch, data.dimension, data.gamemode
                 );
                 if (retryCount == 0) {
                     System.out.println("[PVP_BOT] Restoring bot: " + name);
@@ -147,12 +170,13 @@ public class BotManager {
                 botDataMap.put(name, data);
                 success = true;
                 System.out.println("[PVP_BOT] ✓ Successfully restored bot: " + name);
+
             } catch (Exception e) {
                 // Пробуем упрощённую команду
                 try {
                     String simpleCommand = String.format(java.util.Locale.US,
-                        "player %s spawn at %.2f %.2f %.2f",
-                        name, data.x, data.y, data.z
+                            "player %s spawn at %.2f %.2f %.2f",
+                            name, data.x, data.y, data.z
                     );
                     dispatcher.execute(simpleCommand, server.getCommandSource());
                     bots.add(name);
@@ -167,7 +191,7 @@ public class BotManager {
                     }
                 }
             }
-            
+
             // Если не удалось и есть попытки - повторяем через 20 тиков
             if (!success && retryCount < MAX_RETRIES) {
                 final int currentRetry = retryCount + 1;
@@ -205,7 +229,7 @@ public class BotManager {
             }
         }
     }
-    
+
     /**
      * Обновление данных всех ботов перед сохранением
      * Сохраняем данные только живых ботов, мёртвые сохраняют последнюю позицию
@@ -232,43 +256,68 @@ public class BotManager {
         }
         System.out.println("[PVP_BOT] Updated bot data: " + updated + " updated, " + skipped + " skipped, " + missing + " missing, " + bots.size() + " total in list, " + botDataMap.size() + " in data map");
     }
-    
+
     /**
      * Сохранение списка ботов
      */
     public static void saveBots() {
         if (savePath == null) return;
-        
+
         try (Writer writer = Files.newBufferedWriter(savePath)) {
             GSON.toJson(botDataMap, writer);
         } catch (Exception e) {
             System.out.println("[PVP_BOT] Failed to save bots: " + e.getMessage());
         }
     }
-    
+
     /**
      * Загрузка списка ботов
      */
     private static void loadBots() {
-        if (savePath == null || !Files.exists(savePath)) return;
-        
-        try (Reader reader = Files.newBufferedReader(savePath)) {
-            Map<String, BotData> loaded = GSON.fromJson(reader, new TypeToken<Map<String, BotData>>(){}.getType());
+        if (savePath == null) return;
+
+        Path pathToLoad = null;
+        if (Files.exists(savePath)) {
+            pathToLoad = savePath;
+        } else if (botsFallbackPath != null && Files.exists(botsFallbackPath)) {
+            pathToLoad = botsFallbackPath;
+            System.out.println("[PVP_BOT] Loading bots from legacy file: " + botsFallbackPath.getFileName());
+        }
+        if (pathToLoad == null) return;
+
+        try (Reader reader = Files.newBufferedReader(pathToLoad)) {
+            Map<String, BotData> loaded = GSON.fromJson(reader, new TypeToken<Map<String, BotData>>() {
+            }.getType());
             if (loaded != null) {
                 botDataMap.putAll(loaded);
                 bots.addAll(loaded.keySet());
+                if (!pathToLoad.equals(savePath)) {
+                    saveBots();
+                }
             }
         } catch (Exception e) {
             System.out.println("[PVP_BOT] Failed to load bots: " + e.getMessage());
         }
     }
-    
+
     /**
      * Сброс при выходе из мира
      */
     public static void reset(MinecraftServer server) {
         updateBotData(server);
         saveBots();
+        saveStats();
+
+        // Очищаем состояние, чтобы при запуске другого мира не переносились старые боты
+        bots.clear();
+        botDataMap.clear();
+        botsSpawnedTotal = 0;
+        botsKilledTotal = 0;
+        savePath = null;
+        statsPath = null;
+        botsFallbackPath = null;
+        statsFallbackPath = null;
+
         initialized = false;
     }
 
@@ -301,7 +350,7 @@ public class BotManager {
                 // Даже если команда выбросила исключение, проверим появился ли бот
             }
         }
-        
+
         // Проверяем появился ли бот на сервере (независимо от результата команды)
         // Даём небольшую задержку через execute
         server.execute(() -> {
@@ -319,7 +368,7 @@ public class BotManager {
                 System.out.println("[PVP_BOT] Updated bot data (delayed): " + name);
             }
         });
-        
+
         // Добавляем в список сразу (на случай если бот уже появился)
         ServerPlayerEntity newBot = server.getPlayerManager().getPlayer(name);
         if (newBot != null) {
@@ -332,7 +381,7 @@ public class BotManager {
             }
             return true;
         }
-        
+
         // Бот ещё не появился, добавим имя в список с дефолтными данными
         if (!bots.contains(name)) {
             bots.add(name);
@@ -351,7 +400,7 @@ public class BotManager {
             saveBots();
             System.out.println("[PVP_BOT] Added bot to list (default data): " + name);
         }
-        
+
         return true;
     }
 
@@ -360,7 +409,7 @@ public class BotManager {
         boolean wasInList = bots.remove(name);
         botDataMap.remove(name); // Удаляем данные бота
         saveBots();
-        
+
         // Очищаем все состояния бота
         BotCombat.removeState(name);
         BotUtils.removeState(name);
@@ -373,9 +422,9 @@ public class BotManager {
         } catch (Exception e) {
             // Ignore
         }
-        
+
         // Убрали мгновенную отправку - статистика отправится через 30 секунд
-        
+
         return wasInList;
     }
 
@@ -390,7 +439,7 @@ public class BotManager {
             BotCombat.removeState(name);
             BotUtils.removeState(name);
             BotNavigation.resetIdle(name);
-            
+
             String command = "player " + name + " kill";
             try {
                 dispatcher.execute(command, source);
@@ -401,7 +450,7 @@ public class BotManager {
         bots.clear();
         botDataMap.clear(); // Очищаем данные всех ботов
         saveBots();
-        
+
         // Убрали мгновенную отправку - статистика отправится через 30 секунд
     }
 
@@ -412,7 +461,7 @@ public class BotManager {
     public static Set<String> getAllBots() {
         return new HashSet<>(bots);
     }
-    
+
     /**
      * Проверяет жив ли бот - удаляет мёртвых из списка
      * НЕ удаляет ботов которые просто не загружены (bot == null)
@@ -421,13 +470,13 @@ public class BotManager {
         boolean changed = false;
         for (String name : new HashSet<>(bots)) {
             ServerPlayerEntity bot = server.getPlayerManager().getPlayer(name);
-            
+
             // Если бот не найден (bot == null) - НЕ удаляем его!
             // Он может быть просто выгружен из памяти (далеко от игрока в синглплеере)
             if (bot == null) {
                 continue; // Пропускаем, не удаляем
             }
-            
+
             // Удаляем только если бот существует НО мёртв
             boolean isDead = !bot.isAlive() || bot.getHealth() <= 0 || bot.isDead();
             if (isDead) {
@@ -446,7 +495,7 @@ public class BotManager {
             saveBots();
         }
     }
-    
+
     /**
      * Синхронизирует список ботов с реальными Carpet ботами на сервере
      * Добавляет ботов которые есть на сервере но нет в списке
@@ -456,17 +505,17 @@ public class BotManager {
         // Проверяем всех игроков на сервере
         for (var player : server.getPlayerManager().getPlayerList()) {
             String name = player.getName().getString();
-            
+
             // Пропускаем если уже в списке
             if (bots.contains(name)) continue;
-            
+
             // Carpet боты имеют класс carpet.patches.EntityPlayerMPFake
             String className = player.getClass().getName();
-            boolean isFakePlayer = className.contains("EntityPlayerMPFake") || 
-                                   className.contains("FakePlayer") ||
-                                   className.contains("fake") ||
-                                   className.contains("Fake");
-            
+            boolean isFakePlayer = className.contains("EntityPlayerMPFake") ||
+                    className.contains("FakePlayer") ||
+                    className.contains("fake") ||
+                    className.contains("Fake");
+
             if (isFakePlayer) {
                 bots.add(name);
                 botDataMap.put(name, new BotData(player));
@@ -478,7 +527,7 @@ public class BotManager {
             saveBots();
         }
     }
-    
+
     /**
      * Синхронизирует конкретного бота по имени
      * Добавляет бота в список если он fake player и его нет в списке
@@ -488,20 +537,20 @@ public class BotManager {
         if (bots.contains(name)) {
             return false;
         }
-        
+
         // Ищем игрока на сервере
         ServerPlayerEntity player = server.getPlayerManager().getPlayer(name);
         if (player == null) {
             return false;
         }
-        
+
         // Проверяем что это fake player
         String className = player.getClass().getName();
-        boolean isFakePlayer = className.contains("EntityPlayerMPFake") || 
-                               className.contains("FakePlayer") ||
-                               className.contains("fake") ||
-                               className.contains("Fake");
-        
+        boolean isFakePlayer = className.contains("EntityPlayerMPFake") ||
+                className.contains("FakePlayer") ||
+                className.contains("fake") ||
+                className.contains("Fake");
+
         if (isFakePlayer) {
             bots.add(name);
             botDataMap.put(name, new BotData(player));
@@ -510,10 +559,10 @@ public class BotManager {
             System.out.println("[PVP_BOT] Synced bot: " + name);
             return true;
         }
-        
+
         return false;
     }
-    
+
     /**
      * Увеличивает счетчик заспавненных ботов
      */
@@ -522,7 +571,7 @@ public class BotManager {
         saveStats();
         // Убрали мгновенную отправку - статистика отправится через 30 секунд
     }
-    
+
     /**
      * Увеличивает счетчик убитых ботов
      */
@@ -531,28 +580,26 @@ public class BotManager {
         saveStats();
         // Убрали мгновенную отправку - статистика отправится через 30 секунд
     }
-    
+
     /**
      * Возвращает общее количество заспавненных ботов
      */
     public static int getBotsSpawnedTotal() {
         return botsSpawnedTotal;
     }
-    
+
     /**
      * Возвращает общее количество убитых ботов
      */
     public static int getBotsKilledTotal() {
         return botsKilledTotal;
     }
-    
+
     /**
      * Сохранение статистики
      */
     private static void saveStats() {
-        if (savePath == null) return;
-        
-        Path statsPath = savePath.getParent().resolve("stats.json");
+        if (statsPath == null) return;
         try (Writer writer = Files.newBufferedWriter(statsPath)) {
             StatsData stats = new StatsData();
             stats.botsSpawnedTotal = botsSpawnedTotal;
@@ -562,24 +609,51 @@ public class BotManager {
             System.out.println("[PVP_BOT] Failed to save stats: " + e.getMessage());
         }
     }
-    
+
     /**
      * Загрузка статистики
      */
     private static void loadStats() {
-        if (savePath == null) return;
-        
-        Path statsPath = savePath.getParent().resolve("stats.json");
-        if (!Files.exists(statsPath)) return;
-        
-        try (Reader reader = Files.newBufferedReader(statsPath)) {
+        if (statsPath == null) return;
+
+        Path pathToLoad = null;
+        if (Files.exists(statsPath)) {
+            pathToLoad = statsPath;
+        } else if (statsFallbackPath != null && Files.exists(statsFallbackPath)) {
+            pathToLoad = statsFallbackPath;
+            System.out.println("[PVP_BOT] Loading stats from legacy file: " + statsFallbackPath.getFileName());
+        }
+        if (pathToLoad == null) return;
+
+        try (Reader reader = Files.newBufferedReader(pathToLoad)) {
             StatsData stats = GSON.fromJson(reader, StatsData.class);
             if (stats != null) {
                 botsSpawnedTotal = stats.botsSpawnedTotal;
                 botsKilledTotal = stats.botsKilledTotal;
+                if (!pathToLoad.equals(statsPath)) {
+                    saveStats();
+                }
             }
         } catch (Exception e) {
             System.out.println("[PVP_BOT] Failed to load stats: " + e.getMessage());
         }
+    }
+
+    private static String buildServerKey(Path worldPath) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(worldPath.toString().getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                sb.append(String.format("%02x", hash[i]));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return Integer.toHexString(worldPath.toString().hashCode());
+        }
+    }
+
+    private static String sanitizeFilePart(String value) {
+        return value.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 }

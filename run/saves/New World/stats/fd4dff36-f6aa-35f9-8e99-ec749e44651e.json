@@ -1,0 +1,32 @@
+{
+  "stats": {
+    "minecraft:picked_up": {
+      "minecraft:dirt": 4,
+      "minecraft:birch_sapling": 1,
+      "minecraft:stick": 2,
+      "minecraft:wildflowers": 1
+    },
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 14305,
+      "minecraft:sprint_one_cm": 6695,
+      "minecraft:time_since_rest": 2068,
+      "minecraft:fall_one_cm": 4071,
+      "minecraft:walk_one_cm": 14057,
+      "minecraft:total_world_time": 2096,
+      "minecraft:leave_game": 1,
+      "minecraft:fly_one_cm": 9955,
+      "minecraft:play_time": 2068,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 52,
+      "minecraft:time_since_death": 2068
+    },
+    "minecraft:mined": {
+      "minecraft:short_grass": 2
+    },
+    "minecraft:used": {
+      "minecraft:end_crystal": 22,
+      "minecraft:obsidian": 7
+    }
+  },
+  "DataVersion": 4671
+}

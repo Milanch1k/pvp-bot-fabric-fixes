@@ -1,0 +1,22 @@
+{
+  "stats": {
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 714,
+      "minecraft:time_since_rest": 1787,
+      "minecraft:walk_one_cm": 4303,
+      "minecraft:total_world_time": 1801,
+      "minecraft:leave_game": 1,
+      "minecraft:fly_one_cm": 11366,
+      "minecraft:sneak_time": 19,
+      "minecraft:play_time": 1787,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 6,
+      "minecraft:time_since_death": 1787
+    },
+    "minecraft:used": {
+      "minecraft:end_crystal": 1,
+      "minecraft:obsidian": 168
+    }
+  },
+  "DataVersion": 4671
+}

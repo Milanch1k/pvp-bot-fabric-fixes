@@ -1,0 +1,22 @@
+{
+  "1": {
+    "7": "{count:64,id:\"minecraft:obsidian\"}",
+    "8": "{count:64,id:\"minecraft:end_crystal\"}"
+  },
+  "2": {
+    "8": "{count:1,id:\"minecraft:cobweb\"}",
+    "31": "{count:1,id:\"minecraft:water_bucket\"}"
+  },
+  "3": {
+    "33": "{count:1,id:\"minecraft:water_bucket\"}",
+    "34": "{count:1,id:\"minecraft:water_bucket\"}",
+    "35": "{count:1,id:\"minecraft:water_bucket\"}",
+    "27": "{count:1,id:\"minecraft:water_bucket\"}",
+    "28": "{count:1,id:\"minecraft:water_bucket\"}",
+    "29": "{count:1,id:\"minecraft:water_bucket\"}",
+    "8": "{count:1,id:\"minecraft:cobweb\"}",
+    "30": "{count:1,id:\"minecraft:water_bucket\"}",
+    "31": "{count:1,id:\"minecraft:water_bucket\"}",
+    "32": "{count:1,id:\"minecraft:water_bucket\"}"
+  }
+}

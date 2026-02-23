@@ -1,0 +1,30 @@
+{
+  "stats": {
+    "minecraft:used": {
+      "minecraft:end_crystal": 33,
+      "minecraft:obsidian": 15
+    },
+    "minecraft:picked_up": {
+      "minecraft:wildflowers": 8
+    },
+    "minecraft:mined": {
+      "minecraft:short_grass": 4,
+      "minecraft:wildflowers": 3
+    },
+    "minecraft:custom": {
+      "minecraft:damage_resisted": 2977,
+      "minecraft:sprint_one_cm": 1600,
+      "minecraft:time_since_rest": 1558,
+      "minecraft:fall_one_cm": 450,
+      "minecraft:walk_one_cm": 17696,
+      "minecraft:total_world_time": 1613,
+      "minecraft:leave_game": 1,
+      "minecraft:fly_one_cm": 1391,
+      "minecraft:play_time": 1558,
+      "minecraft:damage_dealt": 0,
+      "minecraft:jump": 28,
+      "minecraft:time_since_death": 1558
+    }
+  },
+  "DataVersion": 4671
+}
