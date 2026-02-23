@@ -2,6 +2,9 @@
 
 > **Fixes bugs and flaws from [PVP Bot Fabric](https://github.com/Stepan1411/pvp-bot-fabric)**
 
+[**Download**](https://github.com/Milanch1k/pvp-bot-fabric-fixes/raw/refs/heads/main/build/libs/PVP_bot-0.0.12.jar)
+
+
 ## Fixes
 - Bug [#53](https://github.com/Stepan1411/pvp-bot-fabric/issues/53) fixed
 - Bug [#52](https://github.com/Stepan1411/pvp-bot-fabric/issues/52) fixed
